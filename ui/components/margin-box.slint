@@ -1,0 +1,74 @@
+
+export component MarginBox inherits Rectangle {
+    property <length> unset: 9999999px;
+    in property <length> margin: unset;
+    in property <length> margin-horizontal: unset;
+    in property <length> margin-vertical: unset;
+    in property <length> margin-top: unset;
+    in property <length> margin-buttom: unset;
+    in property <length> margin-left: unset;
+    in property <length> margin-right: unset;
+
+    pure function top() -> length {
+        if margin-top != unset {
+            margin-top
+        } else if margin-vertical != unset {
+            margin-vertical
+        } else if margin != unset {
+            margin
+        } else {
+            0px
+        }
+    }
+    pure function bottom() -> length {
+        if margin-buttom != unset {
+            margin-buttom
+        } else if margin-vertical != unset {
+            margin-vertical
+        } else if margin != unset {
+            margin
+        } else {
+            0px
+        }
+    }
+    pure function left() -> length {
+        if margin-left != unset {
+            margin-left
+        } else if margin-horizontal != unset {
+            margin-horizontal
+        } else if margin != unset {
+            margin
+        } else {
+            0px
+        }
+    }
+    pure function right() -> length {
+        if margin-right != unset {
+            margin-right
+        } else if margin-horizontal != unset {
+            margin-horizontal
+        } else if margin != unset {
+            margin
+        } else {
+            0px
+        }
+    }
+    Rectangle {
+        width: root.width - left() - right();
+        height: root.height - top() - bottom();
+        x: root.left();
+        y: root.top();
+        @children
+    }
+}
+
+export component test {
+    MarginBox {
+        background: red;
+        margin: 40px;
+        margin-horizontal: 20px;
+        Rectangle {
+            background: blue;
+        }
+    }
+}

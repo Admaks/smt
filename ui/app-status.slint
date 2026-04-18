@@ -1,0 +1,41 @@
+import { SongDetail } from "types/types.slint";
+
+export global AppStatus {
+    in-out property <bool> logined: true;
+    in-out property <int> login-id-1;
+    in-out property <int> login-id-2;
+
+    in-out property <bool> loading: false;
+}
+
+export global AppKeys {
+    in-out property <bool> control;
+    in-out property <bool> shift;
+    in-out property <bool> meta;
+    in-out property <bool> alt;
+
+    in-out property <string> key;
+}
+
+export global PlayerStatus {
+    in property <SongDetail> playing-song;
+
+    in-out property <int> status-tragger: 1;
+    out property <int> status-none: 0;
+    out property <int> status-pause: 1;
+    out property <int> status-playing: 2;
+    out property <int> status-loading: 3;
+
+    in-out property <string> played-duration: "0:00:00";
+    in-out property <string> total-duraiton: "0:00:00";
+    
+    in-out property <int> played-duration-int: 0;
+    in-out property <int> total-duration-int: 1;
+
+    callback next();
+    callback prev();
+    callback pause-resume();
+    callback seek-to-duration(int);
+    callback event-loop();
+    in-out property <duration> event-loop-gap: 100ms;
+}

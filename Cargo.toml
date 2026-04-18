@@ -1,0 +1,52 @@
+[package]
+name = "smt"
+version = "0.1.0"
+edition = "2024"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+#slint = "1.14.1"
+slint = { version = "1.15.1", features = ["renderer-winit-skia"] }
+i-slint-backend-winit = "=1.15.1"
+winit = { version = "0.30.13" }
+moka = {version = "0.12.15", features = ["sync"]}
+
+ncm-api-rs = "0.1"
+#tokio = { version = "1", features = ["full"] }
+
+
+serde = { version = "1.0.228", features = ["derive"]}
+cookie_store = "0.22.1"
+anyhow = "1.0.102"
+qrcode-generator = "5.0.0"
+image = "0.25.10"
+futures = "0.3.32"
+ncm-api-rust = { path = "../../ncm-api-rust" }
+chrono = "0.4.44"
+rodio = "0.20.1"
+rand = "0.8.5"
+
+
+[build-dependencies]
+slint-build = "1.14.1"
+
+[dev-dependencies]
+tempfile = "3.9.0"
+
+[profile.release]
+#codegen-units = 1
+lto = true
+# 1. 最高级速度优化（核心！）
+opt-level = 3
+# 2. 最强跨包链接时优化（Fat LTO）
+# 3. 单线程代码生成，优化无死角
+codegen-units = 1
+# 4. 剥离调试信息，大幅缩小体积
+strip = true
+# 5. 关闭 panic 栈展开，更快更小
+panic = "abort"
+# 6. 关闭增量编译（release 无需）
+incremental = false
+# 7. 关闭调试信息
+debug = false

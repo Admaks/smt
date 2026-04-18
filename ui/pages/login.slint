@@ -1,0 +1,89 @@
+import { Button, VerticalBox, HorizontalBox, ProgressIndicator, Spinner } from "std-widgets.slint";
+import { Palette } from "../palette.slint";
+
+export global LoginProperty {
+    callback check_qrcode();
+    callback reload_qrcode();
+    callback login_ready();
+    // in-out property <image> qr-img;
+    in-out property <image> qr-img;
+    in-out property <bool> waiting-response: false;
+    in-out property <bool> check-qrcode-failed: false;
+}
+
+export component Login inherits Rectangle{
+    property <bool> error;
+
+    Rectangle {
+        height: 400px;
+        width: 300px;
+
+        main_content := Rectangle {
+            width: parent.width - 30px;
+            height: parent.height - 20px;
+            VerticalBox {
+                alignment: center;
+                Rectangle {
+                    height: 10px;
+                }
+                Text {
+                    text: "扫描二维码登录";
+                    horizontal-alignment: center;
+                    font-size: 20px;
+                    color: Palette.neutral-primary;
+                }
+
+                Rectangle {
+                    height: 10px;
+                }
+
+                HorizontalBox {
+                    alignment: center;
+                        Image {
+                        horizontal-alignment: ImageHorizontalAlignment.center;
+                        source: LoginProperty.qr-img;
+                        vertical-alignment: center;
+                        vertical-stretch: 1;
+                        width: 200px;
+                        height: 200px;
+                    }
+                }
+
+
+                Rectangle {
+                    // vertical-stretch: 1;
+                    if  LoginProperty.waiting-response: ProgressIndicator {
+                        // progress: Math.mod(animation-tick() / 2s, 1);
+                        indeterminate: true;
+                        min-width: 200px;
+                    }
+                    if !LoginProperty.waiting-response && LoginProperty.check-qrcode-failed: Text{
+                        text: "登录失败，请扫码重试";
+                        font-size: 12px;
+                        color: Palette.error;
+                    }
+
+                    min-height: 10px;
+                }
+
+                HorizontalBox {
+                    alignment: center;
+                    Button {
+                        enabled: !LoginProperty.waiting-response;
+                        text: "登录";
+                        width: 200px;
+                        clicked => {
+                            LoginProperty.waiting-response = true;
+                            LoginProperty.check_qrcode();
+                        }
+                    }
+                }
+            }
+        }
+    
+        background: Palette.neutral-lighter-alt;
+        border-radius: 4px;
+        drop-shadow-blur: 6px;
+        drop-shadow-color: Palette.neutral-tertiary;
+    }
+}

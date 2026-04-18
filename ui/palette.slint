@@ -1,0 +1,67 @@
+// fluent-theme.slint - Fluent Design 颜色主题定义
+
+export global Palette {
+    // ==========================================
+    // 1. 核心品牌主题主色 (Brand Theme Colors)
+    // ==========================================
+    /// 按下状态的主色控件
+    out property <color> theme-darker: #004578;
+    /// 深色强调的主视觉元素
+    out property <color> theme-dark: #005a9e;
+    /// 主控件悬浮态
+    out property <color> theme-dark-alt: #106ebe;
+    /// 主题核心主色、默认按钮、链接高亮
+    out property <color> theme-primary: #0078d4;
+    /// 次级强调元素、次要按钮
+    out property <color> theme-secondary: #2b88d8;
+    /// 弱强调边框、分割线
+    out property <color> theme-tertiary: #71afe5;
+    /// 浅底色、禁用态背景
+    out property <color> theme-light: #c7e0f4;
+    /// 极浅底色、悬浮态背景
+    out property <color> theme-lighter: #deecf9;
+    /// 最浅底色、轻微高亮背景
+    out property <color> theme-lighter-alt: #eff6fc;
+
+    // ==========================================
+    // 2. 基础中性色体系 (Neutral Colors)
+    // ==========================================
+    /// 浅色模式主背景
+    out property <color> white: #ffffff;
+    /// 最浅灰背景、卡片底色
+    out property <color> neutral-lighter-alt: #f8f8f8;
+    /// 浅灰背景、控件默认底色
+    out property <color> neutral-lighter: #f4f4f4;
+    /// 分割线、浅边框
+    out property <color> neutral-light: #eaeaea;
+    /// 次级分割线、禁用边框
+    out property <color> neutral-quaternary-alt: #dadada;
+    /// 弱对比度边框
+    out property <color> neutral-quaternary: #d0d0d0;
+    /// 禁用态文本、占位符
+    out property <color> neutral-tertiary-alt: #c8c8c8;
+    /// 辅助文本、说明文字
+    out property <color> neutral-tertiary: #a6a6a6;
+    /// 次级正文、次要文本
+    out property <color> neutral-secondary: #666666;
+    /// 正文文本备选
+    out property <color> neutral-primary-alt: #3c3c3c;
+    /// 浅色模式核心正文
+    out property <color> neutral-primary: #333333;
+    /// 深色标题、强强调文本
+    out property <color> neutral-dark: #212121;
+    /// 纯黑文本、深色模式核心元素
+    out property <color> black: #000000;
+
+    // ==========================================
+    // 3. 语义功能色 (Semantic Accent Colors)
+    // ==========================================
+    /// 成功提示、完成状态、正向操作
+    out property <color> success: #107c10;
+    /// 警告提示、待办提醒、非阻断性异常
+    out property <color> warning: #ffb900;
+    /// 错误提示、删除操作、阻断性异常
+    out property <color> error: #e81123;
+    /// 通用信息提示、帮助引导
+    out property <color> info: #0078d4;
+}

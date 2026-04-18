@@ -1,0 +1,30 @@
+# Rust build artifacts
+/target/
+**/*.rs.bk
+
+# Cargo lockfile policy
+# Keep Cargo.lock for applications; ignore for libraries if preferred.
+# Cargo.lock
+
+# IDE/editor files
+/.vscode/
+/.idea/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+
+# Runtime cache and downloaded media
+/cache/**
+!/cache/**/
+!/cache/.gitkeep
+!/cache/image/.gitkeep
+!/cache/music/.gitkeep
+/image/
+/music/

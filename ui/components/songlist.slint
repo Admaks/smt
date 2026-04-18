@@ -1,0 +1,402 @@
+import { ListView, HorizontalBox, Button, ScrollView } from "std-widgets.slint";
+import { AppKeys } from "../app-status.slint";
+
+import { Palette } from "../palette.slint";
+import { IconFont, IconFontFilled } from "../assets/icon/iconfont.slint";
+import { MarginBox } from "margin-box.slint";
+
+import { SongDetail } from "../types/types.slint";
+
+export { SongDetail }
+
+export global SongListProperty {
+    callback clicked(int, int, [SongDetail]);
+    callback play(int, int, [SongDetail]);
+}
+
+component InnerSongList inherits Rectangle{
+    property <length> song-font-size: 12px;
+    property <int> song-font-weight: 500;
+
+    in property <int> index;
+
+    in-out property <SongDetail> data;
+    
+    callback clicked();
+    callback double-clicked();
+
+    height: 40px;
+    border-radius: 8px;
+    clip: true;
+    
+    
+    ta_main := TouchArea {
+        clicked => {
+            // main-content-clicked()
+            clicked();
+        }
+        double-clicked => {
+            double-clicked();
+        }
+    }
+
+    // property <bool> selecetd: root.clicked-item == i;
+    in property <length> content-width;
+    property <length> stretch-width: content-width  - 200px;
+    HorizontalLayout {
+        Rectangle {
+            horizontal-stretch: 0;
+            width: 1px;
+        }
+        // bluebar 
+        VerticalLayout {
+            alignment: center;
+            width: 3px;
+            horizontal-stretch: 0;
+            blue-bar := Rectangle {
+                background: Palette.theme-primary;
+                border-radius: 2px;
+                width: 3px;
+                height: data.selected ? 18px: 0px;
+                horizontal-stretch: 0;
+                animate height {
+                    duration: 100ms;
+                }
+            }
+        }
+
+        MarginBox {
+            width: 40px;
+            margin-left: 3px;
+            margin-right: 9px;
+            Rectangle {
+                border-radius: 6px;
+                clip: true;
+                width: 28px;
+                height: 28px;
+                // width: self.height;
+                // height: 100%;
+                Image {
+                    source: data.image;
+                    cache-rendering-hint: true;
+                    height: parent.height;
+                    width: parent.width;
+                }
+            }
+        }
+        // 音乐名
+        Text {
+            text: data.name;
+            vertical-alignment: center;
+            font-size: song-font-size;
+            font-weight: song-font-weight;
+            width: stretch-width * 3 / 8;
+            color: Palette.neutral-primary;
+            overflow: elide;
+        }
+
+        // 空白分隔
+        Rectangle {
+            horizontal-stretch: 1;
+            min-width: 10px;
+        }
+
+        // 歌手
+        VerticalLayout {
+            width: stretch-width *  2 / 8;
+            alignment: center;
+            HorizontalLayout {
+                alignment: start;
+                Rectangle {
+                    border-radius: 4px;
+                    Text {
+                        text: "  " + data.singer + "  ";
+                        vertical-alignment: center;
+                        font-size: song-font-size;
+                        font-weight: song-font-weight;
+                        color: Palette.neutral-primary-alt;
+                        overflow: elide;
+                        width: 100%;
+                    }
+
+                    horizontal-stretch: 0;
+                    height: song-font-size + 10px;
+                    
+                    ta_singer := TouchArea {
+                        clicked => {
+                            debug("1000")
+                        }
+                    }
+
+                    states [
+                        hover when ta_singer.has-hover : {
+                            background: Palette.theme-light;
+                            in {
+                                animate background{
+                                    duration: 100ms;
+                                }
+                            }
+                        }
+                    ]
+                }
+            }
+        }
+
+
+        // 空白分隔
+        Rectangle {
+            horizontal-stretch: 1;
+            min-width: 10px;
+        }
+
+        // 专辑
+        VerticalLayout {
+            width: stretch-width *  3 / 8;
+            alignment: center;
+            HorizontalLayout {
+                alignment: start;
+                Rectangle {
+                    border-radius: 4px;
+                    clip: true;
+                    HorizontalLayout {
+                        padding-left: 6px;
+                        padding-right: 6px;
+                        Text {
+                            text: data.album;
+                            vertical-alignment: center;
+                            font-size: song-font-size;
+                            font-weight: song-font-weight;
+                            color: Palette.neutral-primary-alt;
+                            overflow: elide;
+                            width: 100%;
+                        }
+                    }
+
+                    horizontal-stretch: 0;
+                    height: song-font-size + 10px;
+                    
+                    ta_album := TouchArea {
+                        clicked => {
+                            debug("1000")
+                        }
+                    }
+
+                    states [
+                        hover when ta_album.has-hover : {
+                            background: Palette.theme-light;
+                            in {
+                                animate background{
+                                    duration: 100ms;
+                                }
+                            }
+                        }
+                    ]
+                }
+            }
+        }
+
+
+        // 空白分隔
+        Rectangle {
+            horizontal-stretch: 1;
+            min-width: 10px;
+        }
+
+
+        VerticalLayout {
+            alignment: center;
+            width: 16px;
+
+            HorizontalLayout {
+                alignment: center;
+                Rectangle {
+                    width: 100%;
+                    height: 100%;
+                    ta_heart := TouchArea {
+                        width: 100%;
+                        height: 100%;
+                        z: 20;
+                        clicked => {
+                                debug("1000")
+                        }
+                    }
+                    property <length> heart-size: 16px;
+                    property <color> hover-color: #C70039;
+                    property <color> common-color: #E63946;
+                    if data.loved :IconFontFilled {
+                        text: "\u{e708}";
+                        color: common-color;
+                        width: 16px;
+                        font-size: heart-size;
+                        states [
+                            hover when ta_heart.has-hover: {
+                                color: hover-color;
+                                in {
+                                    animate color{
+                                        duration: 100ms;
+                                    }
+                                }
+                            }
+                        ]
+                    } 
+                    if !data.loved :IconFont {
+                        text: "\u{e6fb}";
+                        color: common-color;
+                        width: 16px;
+                        font-size: heart-size;
+                        states [
+                            hover when ta_heart.has-hover: {
+                                color: hover-color;
+                                in {
+                                    animate color{
+                                        duration: 100ms;
+                                    }
+                                }
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+        
+
+        HorizontalLayout {
+            width: 50px;
+            padding-left: 8px;
+            Text {
+                text: "   " + data.duration;
+                vertical-alignment: center;
+                font-size: song-font-size;
+                font-weight: song-font-weight;
+                horizontal-stretch: 0;
+                color: Palette.neutral-secondary;
+            }
+        }
+
+        // 空白分隔
+        Rectangle {
+            max-width: 10px;
+        }
+    }
+
+    states [
+        hover when ta_album.has-hover 
+            || ta_singer.has-hover
+            || ta_heart.has-hover
+            || ta_main.has-hover
+            : {
+            background: Palette.theme-lighter;
+            border-color: Palette.neutral-light;
+            border-width: 1px;
+            in-out {
+                animate background {
+                    duration: 50ms;
+                    easing: ease-out;
+                }
+            }
+        }
+
+
+        seleceted when data.selected: {
+            background: Palette.theme-lighter;
+            border-color: Palette.neutral-light;
+            border-width: 1px;
+            out {
+                animate background,border-color {
+                    duration: 100ms;
+                    easing: ease-out;
+                }
+            }
+        }
+
+        default when Math.mod(index, 2) == 0 : {
+            // background: Palette.neutral-lighter;
+            background: Palette.white;
+            border-color: Palette.neutral-light;
+            border-width: 1px;
+        }
+    ]
+}
+
+// TODO scroll smothly
+export component Songlist inherits Rectangle {
+    in property <[SongDetail]> song-data;
+    in property <length> margin;
+    in-out property <int> select-type : 0;
+
+    out property <bool> view-content: content.viewport-y != 0px;
+    
+    content := ListView {
+        // vertical-scrollbar-policy: always-off;
+        for data[i] in song-data : Rectangle {
+            height: 44px;
+
+            InnerSongList {
+                index: i;
+                width: root.width - margin * 2;
+                data: data;
+                content-width: self.width;
+                clicked => {
+                    if (AppKeys.shift) {
+                        select-type = 2;
+                    } else if (AppKeys.control) {
+                        if (AppKeys.key == "a") {
+                            select-type = 3;
+                        } else {
+                            select-type = 1;
+                        }
+                    } else {
+                        select-type = 0;
+                    }
+                    SongListProperty.clicked(i,select-type,song-data);
+                }
+
+                double-clicked => {
+                    SongListProperty.play(data.id-1, data.id-2, song-data)
+                }
+            }
+        }
+    }
+}
+
+
+
+    //     property <[SongDetail]> data : [
+    //     {
+    // // id_1: int,
+    // // id_2: int,
+    
+    // name: "nananananananan",
+
+    // singer: "sisisisisisisis",
+
+    // album: "alalalalalalalal",
+    // // album_id_1: int,
+    // // album_id_2: int,
+    
+    // // pic_url: string,
+    // duration: "1:20",
+
+    // // image: image
+    // image: @image-url("D:\\code\\smt\\smt\\cache\\qrcode.png"),
+    //         loved: false
+    //     },
+    //             {
+    // // id_1: int,
+    // // id_2: int,
+    
+    // name: "nananananananan32984029",
+
+    // singer: "sisisisisisisis329402-941",
+
+    // album: "alalalalalalalal239401-",
+    // // album_id_1: int,
+    // // album_id_2: int,
+    
+    // // pic_url: string,
+    // duration: "1:20",
+
+    // image: @image-url("D:\\code\\smt\\smt\\cache\\qrcode.png"),
+    // loved: true
+    //     }
+    // ];

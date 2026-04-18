@@ -1,0 +1,117 @@
+import { Button, VerticalBox, HorizontalBox, LineEdit } from "std-widgets.slint";
+import { SideBar } from "sidebar.slint";
+import { Palette } from "palette.slint";
+import { Login, LoginProperty } from "./pages/login.slint";
+import { AppStatus, AppKeys, PlayerStatus } from "app-status.slint";
+import { PlaylistProperty, Playlist } from "./pages/playlist.slint";
+import { SongDetail, SongListProperty } from "./components/songlist.slint";
+import { Player } from "components/player.slint";
+import { VerticallDivider } from "components/divider.slint";
+export { LoginProperty, AppStatus, SongDetail, PlaylistProperty, SongListProperty, PlayerStatus }
+
+
+export component AppWindow inherits Window {
+    default-font-family: "Microsoft YaHei UI";
+    default-font-weight: 400;
+    background: transparent;
+    preferred-height: 1080px * 0.5;
+    preferred-width: 1920px * 0.5;
+
+
+    property <color> main-content-color: Palette.white.with-alpha(0.6);
+    property <bool> sidebar-toggled: false;
+    property <length> sidebar-current-width;
+    if AppStatus.logined: Rectangle {
+        height: 100%;
+        width: 100%;
+
+        sidebar := SideBar {
+            x: 0;
+            y: 0;
+            height: parent.height - player.height;
+            toggled <=> sidebar-toggled;
+            current-width-changed => {
+                sidebar-current-width = sidebar.current-width;
+            }
+            background: Palette.neutral-lighter.with-alpha(0.3);
+        }
+
+        VerticallDivider {
+            height: parent.height - player.height;
+            y:0;
+            x: sidebar-current-width - 1px;
+        }
+
+        // 优化动画，不为宽度增加动画以提升性能，可能会出现页面闪烁
+        main_content :=Rectangle {
+            background: root.main-content-color;
+
+            height: parent.height - player.height;
+
+
+            width: root.width - sidebar-current-width;
+            x: sidebar-current-width;
+            y: 0;
+
+            property <length>  max-width-t: 1280px;
+            property <length>  min-width-t: 600px;
+
+            pure function calculate-margin() -> length {
+                if self.width > max-width-t {
+                    return (self.width - max-width-t) / 2 + 60px;
+                }
+
+                return 60px;
+            }
+                // horizontal-stretch: 10;
+            Playlist {
+                margin: calculate-margin();
+            }
+            
+            animate x {
+                duration: 150ms;
+                easing: ease-out;
+            }
+        }
+
+        player := Player {
+            background: root.main-content-color;
+
+            x: 0px;
+            y: parent.height - self.height;
+        }
+    }
+    
+    if !AppStatus.logined: Login{
+    }
+
+
+
+    public function set_foucs() {
+        // focus.focus();
+    }
+
+    // focus := FocusScope {
+    //     // focus-on-click: true;
+    //     key-pressed(event) => {
+    //         AppKeys.control = event.modifiers.control;
+    //         AppKeys.shift = event.modifiers.shift;
+    //         AppKeys.meta = event.modifiers.meta;
+    //         AppKeys.alt = event.modifiers.alt;
+
+    //         AppKeys.key = event.text;
+    //         accept
+    //     }
+
+    //     key-released(event) => {
+    //         AppKeys.control = event.modifiers.control;
+    //         AppKeys.shift = event.modifiers.shift;
+    //         AppKeys.meta = event.modifiers.meta;
+    //         AppKeys.alt = event.modifiers.alt;
+
+    //         AppKeys.key = event.text;
+    //         accept
+    //     }
+    // }
+}
+
