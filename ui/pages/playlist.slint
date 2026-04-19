@@ -3,7 +3,7 @@ import { Palette } from "../palette.slint";
 import { SongDetail, Songlist } from "../components/songlist.slint";
 import { HorizontalDivider } from "../components/divider.slint";
 import { MarginBox } from "../components/margin-box.slint";
-import { AppStatus } from "../app-status.slint";
+import { AppStatus, ScrollStatus } from "../app-status.slint";
 
 import "../assets/fonts/HarmonyOS_Sans_SC_Regular.ttf";
 
@@ -152,11 +152,11 @@ export component HeaderInner inherits MarginBox{
 
 
 export component Header inherits MarginBox {
-    // in property <length> margin-page;
+    in property <length> margin-page;
     min-height: 180px;
     max-height: 240px;
 
-    margin-horizontal: 0;
+    margin-horizontal: margin-page;
     margin-top: 10px;
     margin-buttom: 30px;
     vertical-stretch: 0;
@@ -182,19 +182,20 @@ export component Playlist inherits Rectangle{
 
     VerticalLayout {
         header := Header {
-            // margin-page: root.margin;
+            margin-page: root.margin;
             height: header-height;
             // minimize: songlist.view-content;
         }
 
         songlist := Songlist {
             song-data: PlaylistProperty.song-data;
-            // margin: root.margin;
+            margin: root.margin;
         }
     }
 
     property <length> virtual-scroll: 0;
     property <length> virtual-space: header.max-height - header.min-height;
+
     scroll := ScrollView {
         width: parent.width;
         height: parent.height;
@@ -203,12 +204,6 @@ export component Playlist inherits Rectangle{
         vertical-scrollbar-policy: ScrollBarPolicy.always-on;
 
         scrolled => {
-            // if header.max-height + self.viewport-y > header.min-height {
-            //     root.header-height = header.max-height + self.viewport-y;
-            // } else {
-            //     root.header-height = header.min-height;
-            //     songlist.content-viewport-y = self.viewport-y + (header.max-height - header.min-height);
-            // }
             let total_scroll = -self.viewport-y;
             if total-scroll > virtual-space {
                 virtual-scroll = virtual-space;

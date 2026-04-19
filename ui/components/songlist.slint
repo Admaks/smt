@@ -321,7 +321,7 @@ component InnerSongList inherits Rectangle{
 // TODO scroll smothly
 export component Songlist inherits Rectangle {
     in property <[SongDetail]> song-data;
-    // in property <length> margin;
+    in property <length> margin;
     in-out property <int> select-type : 0;
 
     out property <bool> view-content: content.viewport-y != 0px;
@@ -336,7 +336,7 @@ export component Songlist inherits Rectangle {
 
             InnerSongList {
                 index: i;
-                width: root.width;
+                width: root.width - margin * 2;
                 data: data;
                 content-width: self.width;
                 clicked => {
