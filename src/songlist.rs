@@ -1,7 +1,16 @@
 use std::{cmp::{max, min}, path::Path};
+use futures::stream::{self, StreamExt};
 use slint::{Model, ModelExt, ModelRc};
 use smt::{i32x2_to_u64};
 use crate::*;
+
+fn apply_cover_updates_batch(model_rc: &ModelRc<SongDetail>, pending: &mut Vec<(usize, slint::Image)>) {
+    for (row, image) in pending.drain(..) {
+        let mut t = model_rc.row_data_tracked(row).unwrap();
+        t.image = image;
+        model_rc.set_row_data(row, t);
+    }
+}
 
 pub fn to_songlist_model(songs: Vec<smt::model::TrackDetail>, default_image_path: &Path, app_lib : AppLibRc) -> ModelRc<SongDetail> {
     let default_image = slint::Image::load_from_path(default_image_path).unwrap();
@@ -12,24 +21,43 @@ pub fn to_songlist_model(songs: Vec<smt::model::TrackDetail>, default_image_path
 
     let model_rc = ModelRc::new(vec_model);
 
+    let mut rows = Vec::with_capacity(model_rc.row_count());
     for i in 0..model_rc.row_count() {
-        let app_lib = app_lib.clone();
-        let model_rc = model_rc.clone();
-        let _ = slint::spawn_local(async move {
-            let t = model_rc.row_data(i).unwrap();
-            let album_id = i32x2_to_u64(t.album_id_1, t.album_id_2);
-            let url = t.pic_url;
-            let Ok(path) = app_lib.get_album_cover(album_id, &url, 72).await else {
-                return ;
-            };
-            let Ok(image) = slint::Image::load_from_path(&path) else {
-                return ;
-            };
-            let mut t = model_rc.row_data_tracked(i).unwrap();
-            t.image = image;
-            model_rc.set_row_data(i, t);
-        });
+        let t = model_rc.row_data(i).unwrap();
+        rows.push((i, i32x2_to_u64(t.album_id_1, t.album_id_2), t.pic_url));
     }
+
+    let model_rc_for_task = model_rc.clone();
+    let _ = slint::spawn_local(async move {
+        let fetches = stream::iter(rows.into_iter().map(|(row, album_id, url)| {
+            let app_lib = app_lib.clone();
+            async move {
+                let Ok(path) = app_lib.get_album_cover(album_id, &url, 72).await else {
+                    return None;
+                };
+                let Ok(image) = slint::Image::load_from_path(&path) else {
+                    return None;
+                };
+                Some((row, image))
+            }
+        }))
+        .buffer_unordered(smt::Config::SONGLIST_COVER_FETCH_CONCURRENCY);
+
+        let mut pending = Vec::with_capacity(smt::Config::SONGLIST_UI_UPDATE_BATCH);
+        futures::pin_mut!(fetches);
+        while let Some(result) = fetches.next().await {
+            if let Some((row, image)) = result {
+                pending.push((row, image));
+                if pending.len() >= smt::Config::SONGLIST_UI_UPDATE_BATCH {
+                    apply_cover_updates_batch(&model_rc_for_task, &mut pending);
+                }
+            }
+        }
+
+        if !pending.is_empty() {
+            apply_cover_updates_batch(&model_rc_for_task, &mut pending);
+        }
+    });
 
     model_rc
 }

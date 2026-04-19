@@ -189,15 +189,16 @@ export component Player inherits Rectangle {
 
 
                         VerticalLayout {
-                            spacing: 4px;
+                            spacing: 0px;
                             // 歌曲名
                             Text {
                                 vertical-alignment: center;
                                 text: PlayerStatus.playing-song.name;
                                 color: Palette.neutral-primary;
-                                font-size: 22px;
-                                font-weight: 500;
+                                font-size: 20px;
+                                font-weight: 400;
                                 overflow: elide;
+                                font-family: "Microsoft YaHei";
                             }
                             // 歌手
                             if !PlayerStatus.playing-song.singer.is-empty : Text {

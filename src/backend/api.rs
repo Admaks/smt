@@ -1,7 +1,9 @@
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Duration;
 use anyhow::{Context, bail};
+use futures::stream::{self, StreamExt};
 // use crate::futures::RuntimeBridge;
 // use crate::{model, runtime_bridge};
 use ncm_api_rs::{create_client, ApiClient, Query};
@@ -9,8 +11,9 @@ use reqwest::header::{CACHE_CONTROL, COOKIE, HeaderValue, PRAGMA, REFERER, USER_
 use tokio::fs;
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
-use tokio::sync::RwLock;
-use super::model;
+use tokio::sync::{Mutex, Notify, RwLock, Semaphore};
+use tokio::time::sleep;
+use super::{config::Config, model};
 
 #[derive(Clone)]
 #[allow(dead_code)]
@@ -18,6 +21,8 @@ pub struct NcmApi {
     client: Arc<RwLock<ApiClient>>,
     download_client: reqwest::Client,
     cookie: Arc<str>,
+    image_download_sem: Arc<Semaphore>,
+    image_inflight: Arc<Mutex<HashMap<String, Arc<Notify>>>>,
     // runtime_bridge: Arc<RuntimeBridge>,
 }
 
@@ -70,6 +75,8 @@ impl NcmApi {
     pub fn new(cookie: &str) -> NcmApi {
         let client = create_client(Some(cookie.to_string()));
         let download_client = reqwest::Client::builder()
+            .connect_timeout(Duration::from_secs(Config::DOWNLOAD_CONNECT_TIMEOUT_SECS))
+            .timeout(Duration::from_secs(Config::DOWNLOAD_TIMEOUT_SECS))
             .build()
             .expect("failed to create reqwest download client");
 
@@ -77,6 +84,8 @@ impl NcmApi {
             client: Arc::new(RwLock::new(client)),
             download_client,
             cookie: Arc::from(cookie),
+            image_download_sem: Arc::new(Semaphore::new(Config::IMAGE_DOWNLOAD_CONCURRENCY)),
+            image_inflight: Arc::new(Mutex::new(HashMap::new())),
             // runtime_bridge: Arc::new(RuntimeBridge::new().unwrap_or_else(|err| {
             //     panic!("failed to initialize runtime bridge for `NcmApi`: {err}")
             // })),
@@ -97,36 +106,74 @@ impl NcmApi {
         self.client.blocking_write().set_cookie(cookie_str.to_string());
     }
 
+    fn should_retry_status(status: reqwest::StatusCode) -> bool {
+        status == reqwest::StatusCode::TOO_MANY_REQUESTS || status.is_server_error()
+    }
+
     async fn download_bytes(&self, url: &str) -> anyhow::Result<Vec<u8>> {
-        let mut request = self
-            .download_client
-            .get(url)
-            .header(USER_AGENT, HeaderValue::from_static("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36"))
-            .header(REFERER, HeaderValue::from_static("https://music.163.com/"))
-            .header(CACHE_CONTROL, HeaderValue::from_static("no-cache"))
-            .header(PRAGMA, HeaderValue::from_static("no-cache"));
+        for attempt in 0..=Config::DOWNLOAD_MAX_RETRIES {
+            let mut request = self
+                .download_client
+                .get(url)
+                .header(USER_AGENT, HeaderValue::from_static("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36"))
+                .header(REFERER, HeaderValue::from_static("https://music.163.com/"))
+                .header(CACHE_CONTROL, HeaderValue::from_static("no-cache"))
+                .header(PRAGMA, HeaderValue::from_static("no-cache"));
 
-        if !self.cookie.is_empty() {
-            request = request.header(COOKIE, self.cookie.as_ref());
+            if !self.cookie.is_empty() {
+                request = request.header(COOKIE, self.cookie.as_ref());
+            }
+
+            let response = match request.send().await {
+                Ok(resp) => resp,
+                Err(err) => {
+                    if attempt < Config::DOWNLOAD_MAX_RETRIES {
+                        sleep(Duration::from_millis(
+                            Config::DOWNLOAD_RETRY_BACKOFF_MS * (1 << attempt),
+                        ))
+                        .await;
+                        continue;
+                    }
+                    return Err(err).with_context(|| format!("failed to send download request: {}", url));
+                }
+            };
+
+            if !response.status().is_success() {
+                let status = response.status();
+                if attempt < Config::DOWNLOAD_MAX_RETRIES && Self::should_retry_status(status) {
+                    sleep(Duration::from_millis(
+                        Config::DOWNLOAD_RETRY_BACKOFF_MS * (1 << attempt),
+                    ))
+                    .await;
+                    continue;
+                }
+                return Err(anyhow::anyhow!(
+                    "download request returned error status {}: {}",
+                    status,
+                    url
+                ));
+            }
+
+            let bytes = response
+                .bytes()
+                .await
+                .with_context(|| format!("failed to read download response body: {}", url))?;
+
+            if bytes.is_empty() {
+                if attempt < Config::DOWNLOAD_MAX_RETRIES {
+                    sleep(Duration::from_millis(
+                        Config::DOWNLOAD_RETRY_BACKOFF_MS * (1 << attempt),
+                    ))
+                    .await;
+                    continue;
+                }
+                bail!("downloaded empty file from {}", url);
+            }
+
+            return Ok(bytes.to_vec());
         }
 
-        let response = request
-            .send()
-            .await
-            .with_context(|| format!("failed to send download request: {}", url))?
-            .error_for_status()
-            .with_context(|| format!("download request returned error status: {}", url))?;
-
-        let bytes = response
-            .bytes()
-            .await
-            .with_context(|| format!("failed to read download response body: {}", url))?;
-
-        if bytes.is_empty() {
-            bail!("downloaded empty file from {}", url);
-        }
-
-        Ok(bytes.to_vec())
+        bail!("download failed after retries: {}", url)
     }
 
     pub async fn user_account(&self) -> anyhow::Result<model::Account> {
@@ -239,36 +286,152 @@ impl NcmApi {
         Err(anyhow::anyhow!("unsupported audio format, only mp3/flac/wav/ogg/m4a/aac are allowed"))
     }
 
+    async fn download_song_to_file(
+        &self,
+        id: u64,
+        br_tag: &str,
+        dir: PathBuf,
+        track: model::TrackUrl,
+    ) -> anyhow::Result<PathBuf> {
+        let url = track
+            .url
+            .as_ref()
+            .ok_or(anyhow::anyhow!("song url is empty for id {}", id))?;
+        let bytes = self.download_bytes(url).await?;
+        let extension = Self::detect_audio_extension(&bytes)?;
+        let song_path = dir.join(format!("{}_{}.{}", id, br_tag, extension));
+        let temp_path = dir.join(format!("{}_{}.{}.downloading", id, br_tag, extension));
+
+        let _ = fs::remove_file(&temp_path).await;
+
+        let mut file = File::create(&temp_path)
+            .await
+            .with_context(|| format!("failed to create temp song file: {}", temp_path.display()))?;
+        file.write_all(&bytes)
+            .await
+            .with_context(|| format!("failed to write temp song file: {}", temp_path.display()))?;
+        file.flush()
+            .await
+            .with_context(|| format!("failed to flush temp song file: {}", temp_path.display()))?;
+        file.sync_all()
+            .await
+            .with_context(|| format!("failed to sync temp song file: {}", temp_path.display()))?;
+        drop(file);
+
+        if fs::metadata(&song_path).await.is_ok() {
+            let _ = fs::remove_file(&song_path).await;
+        }
+        fs::rename(&temp_path, &song_path)
+            .await
+            .with_context(|| {
+                format!(
+                    "failed to rename temp song file: {} -> {}",
+                    temp_path.display(),
+                    song_path.display()
+                )
+            })?;
+
+        Ok(song_path)
+    }
+
     pub async fn get_image(&self, unique_name:&str, url: &str, dir: PathBuf, width: u16, high: u16)
         -> anyhow::Result<PathBuf> {
+        let inflight_key = format!("{}|{}|{}|{}", dir.display(), unique_name, width, high);
+
+        loop {
+            if let Some(path) = Self::cached_image_path(&dir, unique_name).await {
+                return Ok(path);
+            }
+
+            let (waiter, is_owner) = {
+                let mut inflight = self.image_inflight.lock().await;
+                if let Some(existing) = inflight.get(&inflight_key) {
+                    (existing.clone(), false)
+                } else {
+                    let notify = Arc::new(Notify::new());
+                    inflight.insert(inflight_key.clone(), notify.clone());
+                    (notify, true)
+                }
+            };
+
+            if !is_owner {
+                waiter.notified().await;
+                continue;
+            }
+
+            let result = async {
+            let _permit = self
+                .image_download_sem
+                .acquire()
+                .await
+                .context("failed to acquire image download permit")?;
+
+            fs::create_dir_all(&dir)
+                .await
+                .with_context(|| format!("failed to create image directory: {}", dir.display()))?;
+
+            let bytes = self
+                .download_bytes(&format!("{}?param={}y{}", url, width, high))
+                .await?;
+            let extension = Self::detect_image_extension(&bytes)?;
+            let image_path = dir.join(format!("{}.{}", unique_name, extension));
+            let temp_path = dir.join(format!("{}.{}.downloading", unique_name, extension));
+
+            let _ = fs::remove_file(&temp_path).await;
+
+            let mut file = File::create(&temp_path)
+                .await
+                .with_context(|| format!("failed to create temp image file: {}", temp_path.display()))?;
+            file.write_all(&bytes)
+                .await
+                .with_context(|| format!("failed to write temp image file: {}", temp_path.display()))?;
+            file.flush()
+                .await
+                .with_context(|| format!("failed to flush temp image file: {}", temp_path.display()))?;
+            file.sync_all()
+                .await
+                .with_context(|| format!("failed to sync temp image file: {}", temp_path.display()))?;
+            drop(file);
+
+            if fs::metadata(&image_path).await.is_ok() {
+                let _ = fs::remove_file(&image_path).await;
+            }
+            fs::rename(&temp_path, &image_path)
+                .await
+                .with_context(|| {
+                    format!(
+                        "failed to rename temp image file: {} -> {}",
+                        temp_path.display(),
+                        image_path.display()
+                    )
+                })?;
+
+            Ok(image_path)
+            }
+            .await;
+
+            {
+                let mut inflight = self.image_inflight.lock().await;
+                inflight.remove(&inflight_key);
+            }
+            waiter.notify_waiters();
+
+            return result;
+        }
+    }
+
+    async fn cached_image_path(dir: &PathBuf, unique_name: &str) -> Option<PathBuf> {
         let png_path = dir.join(format!("{}.png", unique_name));
         if fs::metadata(&png_path).await.is_ok() {
-            return Ok(png_path);
+            return Some(png_path);
         }
 
         let jpg_path = dir.join(format!("{}.jpg", unique_name));
         if fs::metadata(&jpg_path).await.is_ok() {
-            return Ok(jpg_path);
+            return Some(jpg_path);
         }
 
-        fs::create_dir_all(&dir)
-            .await
-            .with_context(|| format!("failed to create image directory: {}", dir.display()))?;
-
-        let bytes = self
-            .download_bytes(&format!("{}?param={}y{}", url, width, high))
-            .await?;
-        let extension = Self::detect_image_extension(&bytes)?;
-        let image_path = dir.join(format!("{}.{}", unique_name, extension));
-
-        let mut file = File::create(&image_path)
-            .await
-            .with_context(|| format!("failed to create image file: {}", image_path.display()))?;
-        file.write_all(&bytes)
-            .await
-            .with_context(|| format!("failed to write image file: {}", image_path.display()))?;
-
-        Ok(image_path)
+        None
     }
 
     async fn songs_url(&self, ids: &[u64], br: MusicQuality) -> anyhow::Result<HashMap<u64, anyhow::Result<model::TrackUrl>>> {
@@ -302,6 +465,7 @@ impl NcmApi {
 
         let mut songs_url = self.songs_url(ids, br).await?;
         let mut local_files: HashMap<u64, anyhow::Result<PathBuf>> = HashMap::new();
+        let mut pending_downloads = Vec::new();
 
         for id in ids {
             let mut existing_path = None;
@@ -310,6 +474,11 @@ impl NcmApi {
                 if fs::metadata(&candidate).await.is_ok() {
                     existing_path = Some(candidate);
                     break;
+                }
+
+                let tmp_candidate = dir.join(format!("{}_{}.{}.downloading", id, br_tag, ext));
+                if fs::metadata(&tmp_candidate).await.is_ok() {
+                    let _ = fs::remove_file(&tmp_candidate).await;
                 }
             }
             if let Some(path) = existing_path {
@@ -322,34 +491,23 @@ impl NcmApi {
                 continue
             };
 
+            pending_downloads.push((*id, track_url));
+        }
 
-            let song_result = match track_url {
-                Ok(track) => {
-                    let result = async {
-                        let url = track
-                            .url
-                            .as_ref()
-                            .ok_or(anyhow::anyhow!("song url is empty for id {}", id))?;
-                        let bytes = self.download_bytes(url).await?;
-                        let extension = Self::detect_audio_extension(&bytes)?;
-                        let song_path = dir.join(format!("{}_{}.{}", id, br_tag, extension));
+        let tasks = pending_downloads.into_iter().map(|(id, track_url)| {
+            let dir = dir.clone();
+            async move {
+                let song_result = match track_url {
+                    Ok(track) => self.download_song_to_file(id, br_tag, dir, track).await,
+                    Err(err) => Err(err),
+                };
+                (id, song_result)
+            }
+        });
 
-                        let mut file = File::create(&song_path)
-                            .await
-                            .with_context(|| format!("failed to create song file: {}", song_path.display()))?;
-                        file.write_all(&bytes)
-                            .await
-                            .with_context(|| format!("failed to write song file: {}", song_path.display()))?;
-
-                        Ok(song_path)
-                    }
-                    .await;
-                    result
-                }
-                Err(err) => Err(err),
-            };
-
-            local_files.insert(*id, song_result);
+        let mut results = stream::iter(tasks).buffer_unordered(Config::AUDIO_DOWNLOAD_CONCURRENCY);
+        while let Some((id, song_result)) = results.next().await {
+            local_files.insert(id, song_result);
         }
 
         Ok(local_files)

@@ -21,6 +21,10 @@ slint::include_modules!();
 
 fn load_app_status(app_weak: Weak<AppWindow>, app_lib: AppLibRc) {
     let app = app_weak.upgrade().unwrap();
+    app
+        .global::<PlayerStatus>()
+        .set_event_loop_gap(app_lib.config.player_event_loop_gap_ms as i64);
+
     if let Some(user) = app_lib.login_user.borrow().as_ref() {
         app.global::<AppStatus>().set_logined(true);
         let (id_1, id_2) = smt::u64_to_i32x2(user.id);

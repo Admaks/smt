@@ -1,6 +1,10 @@
 
 use chrono::Duration;
-use smt::{i32x2_to_u64, player::PlayStatus, u64_to_i32x2};
+use smt::{
+    i32x2_to_u64,
+    player::{CurrentSongStatus, PlayerStatusKind},
+    u64_to_i32x2,
+};
 
 use crate::*;
 
@@ -63,23 +67,29 @@ fn event_loop(app_weak: AppWeak, app_lib: AppLibRc) {
         }
     }
 
-    let message = app_lib.player_core.borrow_mut().event_loop();
+    let frame = app_lib.player_core.borrow_mut().event_loop();
 
     let app = app_weak.unwrap();
-    let duration = match message {
-        PlayStatus::Playing(duration) => {
+    let duration = match frame.player_status {
+        PlayerStatusKind::Playing => {
             app.global::<PlayerStatus>().set_status_tragger(app.global::<PlayerStatus>().get_status_playing());
-            Some(duration)
+            match frame.current_song_status {
+                CurrentSongStatus::Position(duration) => Some(duration),
+                _ => None,
+            }
         },
-        PlayStatus::Paused(duration) => {
+        PlayerStatusKind::Paused => {
             app.global::<PlayerStatus>().set_status_tragger(app.global::<PlayerStatus>().get_status_pause());
-            Some(duration)
+            match frame.current_song_status {
+                CurrentSongStatus::Position(duration) => Some(duration),
+                _ => None,
+            }
         },
-        PlayStatus::Stopped => {
+        PlayerStatusKind::Stopped => {
             app.global::<PlayerStatus>().set_status_tragger(app.global::<PlayerStatus>().get_status_none());
             None
         },
-        PlayStatus::Downloading => {
+        PlayerStatusKind::Downloading => {
             app.global::<PlayerStatus>().set_status_tragger(app.global::<PlayerStatus>().get_status_loading());
             None
         }
@@ -147,20 +157,42 @@ fn reload_playing_song(app_weak: AppWeak, app_lib: AppLibRc, id: u64) {
             let id = id.clone();
             async move {
                 let mut track_detail = app_lib.get_tracks(&[id]).await;
-                let default_image = slint::Image::load_from_path(&app_lib.config.assets_dir.join("music.svg")).unwrap_or_default();
+                let default_image = slint::Image::load_from_path(
+                        &app_lib.config.assets_dir.join("music.svg"))
+                    .unwrap_or_default();
+
+                let app = app_weak.unwrap();
+
+                let Some(current_id) = app_lib.player_core.borrow().get_current_id() else {
+                    return;
+                };
+
+                if current_id  != id {
+                    return;
+                }
 
                 let pic_url = track_detail[0].album.pic_url.clone();
-                let cover = app_lib.get_album_cover(track_detail[0].album.id, &pic_url, 100);
+                let cover = app_lib
+                    .get_album_cover(track_detail[0].album.id, &pic_url, 100);
 
                 let total_duration_int = track_detail[0].duration;
                 let total_duration = format_duration(Duration::milliseconds(total_duration_int as i64));
 
-                app_weak.unwrap().global::<PlayerStatus>().set_total_duraiton(total_duration.into());
-                app_weak.unwrap().global::<PlayerStatus>().set_total_duration_int(total_duration_int as i32);
+                app.global::<PlayerStatus>()
+                    .set_total_duraiton(total_duration.into());
+                app.global::<PlayerStatus>()
+                    .set_total_duration_int(total_duration_int as i32);
                 
 
-                let song_detail = types::to_track_detail_detail(app_lib.clone(), track_detail.swap_remove(0), default_image);
-                app_weak.unwrap().global::<PlayerStatus>().set_playing_song(song_detail);
+                let song_detail = types::
+                    to_track_detail_detail(
+                        app_lib.clone(),
+                        track_detail.swap_remove(0),
+                        default_image);
+
+                app.global::<PlayerStatus>().set_playing_song(song_detail);
+
+                drop(app);
 
                 let Ok(path) = cover.await else {
                     return;
@@ -170,9 +202,18 @@ fn reload_playing_song(app_weak: AppWeak, app_lib: AppLibRc, id: u64) {
                     return;
                 };
 
-                let mut playing_song = app_weak.unwrap().global::<PlayerStatus>().get_playing_song();
+                let Some(current_id) = app_lib.player_core.borrow().get_current_id() else {
+                    return;
+                };
+
+                if current_id  != id {
+                    return;
+                }
+
+                let app = app_weak.unwrap();
+                let mut playing_song = app.global::<PlayerStatus>().get_playing_song();
                 playing_song.image = image;
-                app_weak.unwrap().global::<PlayerStatus>().set_playing_song(playing_song);
+                app.global::<PlayerStatus>().set_playing_song(playing_song);
             }
         });
     }

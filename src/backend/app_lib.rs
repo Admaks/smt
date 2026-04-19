@@ -35,8 +35,8 @@ impl AppLib {
             .user_account()
             .compat().await
             else {
-            return Self {
-                player_core: RefCell::new(PlayerCore::new(client.clone(), &config.cache_dir).unwrap()),
+                  return Self {
+                    player_core: RefCell::new(PlayerCore::new(client.clone(), &config).unwrap()),
                 client,
                 config,
                 login_user: RefCell::new(None),
@@ -50,7 +50,7 @@ impl AppLib {
             .unwrap_or_default();
 
         Self {
-            player_core: RefCell::new(PlayerCore::new(client.clone(), &config.cache_dir).unwrap()),
+              player_core: RefCell::new(PlayerCore::new(client.clone(), &config).unwrap()),
             client,
             config,
             login_user: RefCell::new(Some(user)),
@@ -110,21 +110,21 @@ impl AppLib {
 
     pub async fn get_album_cover(&self, id: u64, url: &str, width: u16) -> anyhow::Result<PathBuf> {
         let filename = format!("Album_{}_{}", id, width);
-        let cache_dir = self.config.cache_dir.join("image");
+        let cache_dir = self.config.cache_dir.join(Config::IMAGE_CACHE_SUBDIR);
 
         self.client.get_image(&filename, url, cache_dir, width, width).compat().await
     }
 
     pub async fn get_playlist_cover(&self, id: u64, url: &str, width: u16) -> anyhow::Result<PathBuf> {
         let filename = format!("Playlist_{}_{}", id, width);
-        let cache_dir = self.config.cache_dir.join("image");
+        let cache_dir = self.config.cache_dir.join(Config::IMAGE_CACHE_SUBDIR);
 
         self.client.get_image(&filename, url, cache_dir, width, width).compat().await
     }
 
     pub async fn get_avatar(&self, id: u64, url: &str, width: u16) -> anyhow::Result<PathBuf> {
         let filename = format!("Avatar_{}_{}", id, width);
-        let cache_dir = self.config.cache_dir.join("image");
+        let cache_dir = self.config.cache_dir.join(Config::IMAGE_CACHE_SUBDIR);
 
         self.client.get_image(&filename, url, cache_dir, width, width).compat().await
     }

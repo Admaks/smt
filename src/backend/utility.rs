@@ -17,8 +17,9 @@ pub fn i32x2_to_u64(id_1: i32, id_2: i32) -> u64 {
 #[test]
 pub fn test() {
     println!("{:#?}", u64_to_i32x2(17607058970));
+    // println!("{:#?}", u64_to_i32x2(2115392436));
 }
 #[test]
 pub fn r() {
-    println!("{:#?}", i32x2_to_u64(4, 427189786));
+    println!("{:#?}", i32x2_to_u64(0, 2115392436));
 }
