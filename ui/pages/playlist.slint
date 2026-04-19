@@ -24,8 +24,6 @@ export global PlaylistProperty {
 
 
 export component HeaderInner inherits MarginBox{
-    in property <bool> minimize;
-
     border-radius: 10px;
     background: Palette.white;
     border-width: 1px;
@@ -154,21 +152,22 @@ export component HeaderInner inherits MarginBox{
 
 
 export component Header inherits MarginBox {
-    in property <length> margin-page;
-    in property <bool> minimize;
+    // in property <length> margin-page;
+    min-height: 180px;
+    max-height: 240px;
 
-    margin-horizontal: margin-page;
+    margin-horizontal: 0;
     margin-top: 10px;
     margin-buttom: 30px;
     vertical-stretch: 0;
-    height: !minimize ? 240px : 180px;
+    // height: !minimize ? 240px : 180px;
 
-    animate height {
-         duration: 100ms;
-    }
+    // animate height {
+    //      duration: 100ms;
+    // }
 
     HeaderInner {
-        minimize: root.minimize;
+        // minimize: root.minimize;
     }
 }
 
@@ -178,17 +177,48 @@ export component Playlist inherits Rectangle{
 
     in-out property <length> margin;
 
-    // property <bool> view-content: songlist.view-content;
+    property <length> header-height: header.max-height;
+
 
     VerticalLayout {
-        Header {
-            margin-page: root.margin;
-            minimize: songlist.view-content;
+        header := Header {
+            // margin-page: root.margin;
+            height: header-height;
+            // minimize: songlist.view-content;
         }
 
         songlist := Songlist {
             song-data: PlaylistProperty.song-data;
-            margin: root.margin;
+            // margin: root.margin;
+        }
+    }
+
+    property <length> virtual-scroll: 0;
+    property <length> virtual-space: header.max-height - header.min-height;
+    scroll := ScrollView {
+        width: parent.width;
+        height: parent.height;
+        viewport-height: header.max-height + songlist.content-viewport-height;
+        viewport-width: 1px;
+        vertical-scrollbar-policy: ScrollBarPolicy.always-on;
+
+        scrolled => {
+            // if header.max-height + self.viewport-y > header.min-height {
+            //     root.header-height = header.max-height + self.viewport-y;
+            // } else {
+            //     root.header-height = header.min-height;
+            //     songlist.content-viewport-y = self.viewport-y + (header.max-height - header.min-height);
+            // }
+            let total_scroll = -self.viewport-y;
+            if total-scroll > virtual-space {
+                virtual-scroll = virtual-space;
+                songlist.content-viewport-y = -total-scroll + virtual-space;
+            } else {
+                songlist.content-viewport-y = 0;
+                virtual-scroll = total-scroll;
+            }
+
+            header-height = header.max-height - virtual-scroll;
         }
     }
 
