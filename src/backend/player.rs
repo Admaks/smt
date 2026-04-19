@@ -3,11 +3,12 @@ use std::{
 };
 
 use anyhow::{Context, Result};
+use async_compat::CompatExt;
 use rand::seq::SliceRandom;
 use rodio::cpal::traits::HostTrait;
 use rodio::{Decoder, OutputStream, OutputStreamHandle, Sink};
 
-use crate::NcmApi;
+use crate::{NcmApi, api};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PlayMode {
@@ -50,7 +51,7 @@ pub struct PlayerCore {
 
 	current_index: Option<usize>,
 	ncm_api: NcmApi,
-	quality: ncm_api_rust::api::MusicQuality,
+	quality: api::MusicQuality,
 	
 	cache_dir: PathBuf,
 	error_count: usize,
@@ -90,7 +91,7 @@ impl PlayerCore {
 			current_index: None,
 			mode: PlayMode::Sequence,
 			ncm_api,
-			quality: ncm_api_rust::api::MusicQuality::Standard,
+			quality: api::MusicQuality::Standard,
 			cache_dir: cache_dir.to_path_buf(),
 			error_count: 0,
 		})
@@ -114,7 +115,7 @@ impl PlayerCore {
 			});
 
 			let Ok(path) = ncm_api.songs_path(&song_id, quality, cache_dir)
-			.await
+			.compat().await
 			else {
 				return ;
 			};

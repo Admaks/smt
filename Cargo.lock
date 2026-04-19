@@ -318,6 +318,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-compat"
+version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a1ba85bc55464dcbf728b56d97e119d673f4cf9062be330a9a26f3acf504a590"
+dependencies = [
+ "futures-core",
+ "futures-io",
+ "once_cell",
+ "pin-project-lite",
+ "tokio",
+]
+
+[[package]]
 name = "async-executor"
 version = "1.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3394,20 +3407,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ncm-api-rust"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "futures",
- "ncm-api-rs",
- "reqwest 0.13.2",
- "runtime-bridge-macros",
- "serde",
- "serde_json",
- "tokio",
-]
-
-[[package]]
 name = "ndk"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4929,15 +4928,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "runtime-bridge-macros"
-version = "0.1.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "rustc-hash"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5508,6 +5498,7 @@ name = "smt"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-compat",
  "chrono",
  "cookie_store",
  "futures",
@@ -5515,14 +5506,16 @@ dependencies = [
  "image",
  "moka",
  "ncm-api-rs",
- "ncm-api-rust",
  "qrcode-generator",
  "rand 0.8.5",
+ "reqwest 0.13.2",
  "rodio",
  "serde",
+ "serde_json",
  "slint",
  "slint-build",
  "tempfile",
+ "tokio",
  "winit",
 ]
 

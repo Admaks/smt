@@ -1,4 +1,4 @@
-use ncm_api_rust::model::TrackDetail;
+use smt::model::TrackDetail;
 
 use crate::{AppLibRc, SongDetail};
 

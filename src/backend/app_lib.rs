@@ -2,6 +2,7 @@ use std::{cell::RefCell, collections::HashSet, path::{Path, PathBuf}};
 use std::collections::HashMap;
 use crate::{Config, player::PlayerCore};
 use anyhow::{Context, Result};
+use async_compat::CompatExt;
 
 use image::{Rgba, RgbaImage};
 use qrcode_generator::QrCodeEcc;
@@ -10,10 +11,10 @@ use crate::NcmApi;
 pub struct AppLib {
     pub client: NcmApi,
     pub config: Config,
-    pub login_user: RefCell<Option<ncm_api_rust::model::Account>>,
+    pub login_user: RefCell<Option<crate::model::Account>>,
     pub loved_ids: RefCell<HashSet<u64>>,
     pub player_core: RefCell<PlayerCore>,
-    track_detail_cache: moka::sync::Cache<u64, ncm_api_rust::model::TrackDetail>
+    track_detail_cache: moka::sync::Cache<u64, crate::model::TrackDetail>
 }
 
 
@@ -32,7 +33,7 @@ impl AppLib {
 
         let Ok(user) = client
             .user_account()
-            .await
+            .compat().await
             else {
             return Self {
                 player_core: RefCell::new(PlayerCore::new(client.clone(), &config.cache_dir).unwrap()),
@@ -45,7 +46,7 @@ impl AppLib {
         };
 
         let loved_ids = client.like_list(user.id)
-            .await
+            .compat().await
             .unwrap_or_default();
 
         Self {
@@ -62,11 +63,11 @@ impl AppLib {
         
         let user = self.client
             .user_account()
-            .await
+            .compat().await
             .context("Cannot get user account")?;
 
         let loved_ids = self.client.like_list(user.id)
-            .await
+            .compat().await
             .context("Cannot get user liked songs")
             .unwrap_or_default()
             .into_iter()
@@ -111,37 +112,37 @@ impl AppLib {
         let filename = format!("Album_{}_{}", id, width);
         let cache_dir = self.config.cache_dir.join("image");
 
-        self.client.get_image(&filename, url, cache_dir, width, width).await
+        self.client.get_image(&filename, url, cache_dir, width, width).compat().await
     }
 
     pub async fn get_playlist_cover(&self, id: u64, url: &str, width: u16) -> anyhow::Result<PathBuf> {
         let filename = format!("Playlist_{}_{}", id, width);
         let cache_dir = self.config.cache_dir.join("image");
 
-        self.client.get_image(&filename, url, cache_dir, width, width).await
+        self.client.get_image(&filename, url, cache_dir, width, width).compat().await
     }
 
     pub async fn get_avatar(&self, id: u64, url: &str, width: u16) -> anyhow::Result<PathBuf> {
         let filename = format!("Avatar_{}_{}", id, width);
         let cache_dir = self.config.cache_dir.join("image");
 
-        self.client.get_image(&filename, url, cache_dir, width, width).await
+        self.client.get_image(&filename, url, cache_dir, width, width).compat().await
     }
 
-    pub async fn get_tracks(&self, ids : &[u64]) -> Vec<ncm_api_rust::model::TrackDetail>{
+    pub async fn get_tracks(&self, ids : &[u64]) -> Vec<crate::model::TrackDetail>{
         let uncached= ids.iter().filter(|id| {
             !self.track_detail_cache.contains_key(*id)
         }).copied().collect::<Vec<_>>();
         let mut res = self
             .client
             .songs_detail(&uncached)
-            .await
+            .compat().await
             .unwrap_or(Vec::new())
             .into_iter()
             .map(|track| {
                 (track.id, track)
             })
-            .collect::<HashMap<u64, ncm_api_rust::model::TrackDetail>>();
+            .collect::<HashMap<u64, crate::model::TrackDetail>>();
 
         ids.iter().filter_map(|id| {
             match self.track_detail_cache.get(id) {

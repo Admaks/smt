@@ -3,7 +3,7 @@ use slint::{Model, ModelExt, ModelRc};
 use smt::{i32x2_to_u64};
 use crate::*;
 
-pub fn to_songlist_model(songs: Vec<ncm_api_rust::model::TrackDetail>, default_image_path: &Path, app_lib : AppLibRc) -> ModelRc<SongDetail> {
+pub fn to_songlist_model(songs: Vec<smt::model::TrackDetail>, default_image_path: &Path, app_lib : AppLibRc) -> ModelRc<SongDetail> {
     let default_image = slint::Image::load_from_path(default_image_path).unwrap();
 
     let vec_model = songs.into_iter().map(|song| {

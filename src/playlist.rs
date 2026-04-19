@@ -1,4 +1,5 @@
 use crate::*;
+use async_compat::CompatExt;
 use chrono::{TimeZone};
 use slint::Weak;
 use smt::{i32x2_to_u64};
@@ -24,7 +25,7 @@ async fn playlist_load_data(id: u64, app_weak: Weak<AppWindow>, app_lib: AppLibR
     let playlist = app_lib
         .client
         .playlist_detail(id, None)
-        .await
+        .compat().await
         .unwrap();
     let track_details = app_lib.get_tracks(&playlist.track_ids).await;
     let default_image_path = app_lib.config.assets_dir.join("music.svg");

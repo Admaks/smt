@@ -5,7 +5,8 @@
 use image::Rgba;
 use slint::ComponentHandle;
 use smt::app_lib::AppLib;
-use ncm_api_rust::model::QrCode;
+use smt::model::QrCode;
+use async_compat::CompatExt;
 use crate::{*};
 
 
@@ -18,7 +19,7 @@ async fn load_qrcode(app_weak: slint::Weak<AppWindow>, app_lib: AppLibRc) -> QrC
     let qr_code = app_lib
         .client
         .login_qrcode()
-        .await
+        .compat().await
         .unwrap();
 
     // 定义二维码的前景和背景颜色
@@ -54,9 +55,9 @@ async fn bind_qrcode_login(app_weak: slint::Weak<AppWindow>, app_lib: AppLibRc) 
         let app_weak = app_weak.clone();
         let app_lib = app_lib.clone();
         let _ = slint::spawn_local(async move {
-            if let Ok(cookie_str) = app_lib.client.login_check_qrcode(qr_code).await
+            if let Ok(cookie_str) = app_lib.client.login_check_qrcode(qr_code).compat().await
             {
-                println!("Login success, cookie:\n {}", cookie_str);
+                // println!("Login success, cookie:\n {}", cookie_str);
                 app_lib.init(&cookie_str).await.unwrap();
                 let app = app_weak.upgrade().unwrap();
                 app.global::<AppStatus>().set_logined(true);
