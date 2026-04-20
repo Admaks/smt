@@ -1,9 +1,7 @@
 
 use chrono::Duration;
 use smt::{
-    i32x2_to_u64,
-    player::{CurrentSongStatus, PlayerStatusKind},
-    u64_to_i32x2,
+    i32x2_to_u64, player::{CurrentSongStatus, PlayerStatusKind}, u64_to_i32x2
 };
 
 use crate::*;
@@ -42,6 +40,20 @@ pub fn bind_player(app_weak: AppWeak, app_lib: AppLibRc) {
         let app_lib = app_lib.clone();
         move || {
             app_lib.player_core.borrow_mut().toggle_pause_resume();
+        }
+    });
+
+    app_weak.unwrap().global::<PlayerStatus>().on_toggle_shuffle({
+        let app_lib = app_lib.clone();
+        move || {
+            app_lib.player_core.borrow_mut().shuffle_playlist();
+        }
+    });
+
+    app_weak.unwrap().global::<PlayerStatus>().on_toggle_repeat({
+        let app_lib = app_lib.clone();
+        move || {
+            app_lib.player_core.borrow_mut().toggle_play_mode();
         }
     });
 }
@@ -103,6 +115,16 @@ fn event_loop(app_weak: AppWeak, app_lib: AppLibRc) {
         app.global::<PlayerStatus>().set_played_duration(played_duration.into());
         app.global::<PlayerStatus>().set_played_duration_int(played_duration_int as i32);
     }
+
+    app.global::<PlayerStatus>().set_loop_type(match frame.play_order.play_mode {
+        smt::player::PlayMode::LoopAll => 2,
+        smt::player::PlayMode::LoopOne => 1,
+        smt::player::PlayMode::Sequence => 0,
+    });
+
+    app.global::<PlayerStatus>()
+        .set_shuffled(matches!(frame.play_order.shuffle_state, smt::player::ShuffleState::Enabled));
+
     drop(app);
 
 }

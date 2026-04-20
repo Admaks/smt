@@ -34,11 +34,12 @@ component PauseButton inherits Rectangle {
             }
         ]
 
-        width: 56px;
-        border-radius: 28px;
+        width: 52px;
+        height: 52px;
+        border-radius: 26px;
 
         pause-container := Rectangle {
-            border-radius: 24px;
+            border-radius: 22px;
             width: parent.width - 8px;
             height: parent.height - 8px;
             
@@ -69,8 +70,8 @@ component CommonButton inherits Rectangle{
         clicked => { root.clicked() }
     }
 
-    width: 30px;
-    height: 30px;
+    width: 35px;
+    height: 35px;
     border-radius: 4px;
     IconFontFilled {
         text: iconfont;
@@ -79,7 +80,7 @@ component CommonButton inherits Rectangle{
 
     states [
         hover when ta.has-hover : {
-            background: Palette.neutral-lighter;
+            background: Palette.neutral-light;
         }
     ]
 
@@ -231,9 +232,21 @@ export component Player inherits Rectangle {
                         Rectangle {
                             horizontal-stretch: 1;
                             CommonButton {
-                                iconfont: "\u{f172}";
+                                iconfont: {
+                                    if PlayerStatus.loop-type == 0 {
+                                        "\u{f175}" // no repeat
+                                    } else if PlayerStatus.loop-type == 1 {
+                                        "\u{ef34}" // 1 repeat
+                                    } else  { 
+                                        "\u{f172}"// repeat all
+                                    }
+                                }
+                                clicked => {
+                                    PlayerStatus.toggle-repeat();
+                                }
                             }
-                            // no repeat f175
+                            // no repeat 
+                            // 1 repeat ef34
                         }
 
                         Rectangle {
@@ -266,7 +279,10 @@ export component Player inherits Rectangle {
                         Rectangle {
                             horizontal-stretch: 1;
                             CommonButton {
-                                iconfont: "\u{ef39}";
+                                iconfont: PlayerStatus.shuffled ? "\u{ef39}" : "\u{ef3f}";
+                                clicked => {
+                                    PlayerStatus.toggle-shuffle();
+                                }
                             }
                             // no shuffle ef3f
                         }

@@ -77,27 +77,6 @@ pub struct PlayerStateFrame {
 }
 
 #[derive(Clone, Debug)]
-enum PlayerMessage {
-	ReplacePlaylist(Vec<u64>),
-	InsertSongs(Vec<u64>),
-	ShufflePlaylist,
-	RestorePlaylistOrder,
-	SetPlayMode(PlayMode),
-	Next,
-	Prev,
-	PlaySong(u64),
-	Seek(time::Duration),
-	ApplySeek(time::Duration),
-	TogglePauseResume,
-	Pause,
-	Resume,
-	Tick,
-	StartCurrent,
-	Download(Vec<u64>),
-	AdvanceAfterFailure,
-}
-
-#[derive(Clone, Debug)]
 enum CurrentTrackDecision {
 	NoSong,
 	NeedsDownload(u64),
@@ -172,9 +151,9 @@ pub struct PlayerCore {
 
 	cache_dir: PathBuf,
 	error_count: usize,
-	pending_messages: VecDeque<PlayerMessage>,
 	last_status: PlayStatus,
 	last_default_output_device_name: Option<String>,
+	default_output_switch_pending: bool,
 	tick_counter: u64,
 }
 
@@ -236,7 +215,7 @@ impl PlayerCore {
 		Ok(())
 	}
 
-	fn maybe_rebind_default_output_on_tick(&mut self) {
+	fn maybe_pause_for_default_output_change_on_tick(&mut self) {
 		let check_interval = self.runtime_config.default_output_check_every_ticks.max(1);
 		let next_tick = self.tick_counter.saturating_add(1);
 		if next_tick % check_interval != 0 {
@@ -251,9 +230,32 @@ impl PlayerCore {
 			return;
 		}
 
-		let was_paused = self.sink.is_paused();
-		let had_active_playback = was_paused || !self.sink.empty();
+		self.default_output_switch_pending = true;
+		if !self.sink.empty() && !self.sink.is_paused() {
+			self.sink.pause();
+			self.last_status = PlayStatus::Paused(self.playback_position());
+		}
+	}
+
+	fn needs_default_output_rebind(&self) -> bool {
+		if self.default_output_switch_pending {
+			return true;
+		}
+
+		let Some(current_default_name) = Self::current_default_output_device_name() else {
+			return false;
+		};
+
+		self.last_default_output_device_name.as_deref() != Some(current_default_name.as_str())
+	}
+
+	fn maybe_rebind_default_output_for_resume(&mut self) {
+		if !self.needs_default_output_rebind() {
+			return;
+		}
+
 		let resume_position = self.playback_position();
+		let had_active_playback = self.sink.is_paused() || !self.sink.empty();
 		let current_track_path = if had_active_playback {
 			match self.inspect_current_track() {
 				CurrentTrackDecision::Ready(path) => Some(path),
@@ -267,21 +269,28 @@ impl PlayerCore {
 			eprintln!("Error rebinding to default output device: {}", e);
 			return;
 		}
+		self.default_output_switch_pending = false;
 
 		if let Some(path) = current_track_path {
-			if let Err(e) = self.start_song_on_current_sink(&path, Some(resume_position), was_paused) {
-				eprintln!("Error restoring playback after output rebind: {}", e);
+			if let Err(e) = self.start_song_on_current_sink(&path, Some(resume_position), true) {
+				eprintln!("Error restoring paused playback after output rebind: {}", e);
 				self.last_status = PlayStatus::Stopped;
 				return;
 			}
-			self.last_status = if was_paused {
-				PlayStatus::Paused(self.playback_position())
-			} else {
-				PlayStatus::Playing(self.playback_position())
-			};
-		} else if had_active_playback {
-			self.last_status = PlayStatus::Stopped;
+			self.last_status = PlayStatus::Paused(self.playback_position());
 		}
+	}
+
+	fn maybe_rebind_default_output_for_new_playback(&mut self) {
+		if !self.needs_default_output_rebind() {
+			return;
+		}
+
+		if let Err(e) = self.rebind_to_default_output() {
+			eprintln!("Error rebinding to default output device: {}", e);
+			return;
+		}
+		self.default_output_switch_pending = false;
 	}
 
 	pub fn new(ncm_api: NcmApi, config: &Config) -> Result<Self> {
@@ -304,9 +313,9 @@ impl PlayerCore {
 			runtime_config,
 			cache_dir: config.cache_dir.clone(),
 			error_count: 0,
-			pending_messages: VecDeque::new(),
 			last_status: PlayStatus::Stopped,
 			last_default_output_device_name: Some(default_device_name),
+			default_output_switch_pending: false,
 			tick_counter: 0,
 		};
 		core.load_persisted_state();
@@ -344,7 +353,6 @@ impl PlayerCore {
 		};
 
 		self.pause();
-		self.process_queue();
 	}
 
 	pub fn get_current_id(&self) -> Option<u64> {
@@ -507,25 +515,32 @@ impl PlayerCore {
 
 
 	pub fn replace_playlist(&mut self, new_playlist: Vec<u64>) {
-		self.enqueue(PlayerMessage::ReplacePlaylist(new_playlist));
-		// Replace should apply immediately instead of waiting for the next tick.
-		self.process_queue();
+		self.handle_replace_playlist(new_playlist);
 	}
 
 	pub fn insert_songs(&mut self, song_ids: &[u64]) {
-		self.enqueue(PlayerMessage::InsertSongs(song_ids.to_vec()));
+		self.handle_insert_songs(song_ids);
 	}
 
 	pub fn shuffle_playlist(&mut self) {
-		self.enqueue(PlayerMessage::ShufflePlaylist);
+		self.handle_shuffle_playlist();
 	}
 
 	pub fn restore_playlist_order(&mut self) {
-		self.enqueue(PlayerMessage::RestorePlaylistOrder);
+		self.handle_restore_playlist_order();
 	}
 
 	pub fn set_play_mode(&mut self, mode: PlayMode) {
-		self.enqueue(PlayerMessage::SetPlayMode(mode));
+		self.handle_set_play_mode(mode);
+	}
+
+	pub fn toggle_play_mode(&mut self) {
+		let new_mode = match self.mode {
+			PlayMode::Sequence => PlayMode::LoopAll,
+			PlayMode::LoopAll => PlayMode::LoopOne,
+			PlayMode::LoopOne => PlayMode::Sequence,
+		};
+		self.handle_set_play_mode(new_mode);
 	}
 
 	pub fn play_mode(&self) -> PlayMode {
@@ -533,62 +548,38 @@ impl PlayerCore {
 	}
 
 	pub fn next_song(&mut self) -> PlayStatus {
-		self.enqueue(PlayerMessage::Next);
+		self.handle_next();
 		self.status_snapshot()
 	}
 
 	pub fn prev_song(&mut self) -> PlayStatus {
-		self.enqueue(PlayerMessage::Prev);
+		self.handle_prev();
 		self.status_snapshot()
 	}
 
 	pub fn play(&mut self, song_id: u64) -> PlayStatus {
-		self.enqueue(PlayerMessage::PlaySong(song_id));
-		// Apply direct play requests immediately to avoid Tick interleaving.
-		self.process_queue();
+		self.handle_play_song(song_id);
 		self.status_snapshot()
 	}
 
 	pub fn seek_to_duration(&mut self, position: time::Duration) -> PlayStatus {
-		self.enqueue(PlayerMessage::Seek(position));
+		self.handle_seek(position);
 		self.status_snapshot()
 	}
 
 	pub fn toggle_pause_resume(&mut self) -> PlayStatus {
-		self.enqueue(PlayerMessage::TogglePauseResume);
+		self.handle_toggle_pause_resume();
 		self.status_snapshot()
 	}
 
 	pub fn pause(&mut self) -> PlayStatus {
-		self.enqueue(PlayerMessage::Pause);
+		self.handle_pause();
 		self.status_snapshot()
 	}
 
 	pub fn resume(&mut self) -> PlayStatus {
-		self.enqueue(PlayerMessage::Resume);
+		self.handle_resume();
 		self.status_snapshot()
-	}
-
-	fn enqueue(&mut self, message: PlayerMessage) {
-		self.pending_messages.push_back(message);
-	}
-
-	fn enqueue_many(&mut self, messages: Vec<PlayerMessage>) {
-		for message in messages {
-			self.pending_messages.push_back(message);
-		}
-	}
-
-	fn process_queue(&mut self) {
-		let mut budget = Config::PLAYER_QUEUE_BUDGET;
-		while budget > 0 {
-			let Some(message) = self.pending_messages.pop_front() else {
-				break;
-			};
-			let follow_ups = self.handle_message(message);
-			self.enqueue_many(follow_ups);
-			budget -= 1;
-		}
 	}
 
 	fn reshuffle_from_backup(&mut self, keep_current_song: bool) {
@@ -632,273 +623,276 @@ impl PlayerCore {
 		self.shuffle_state = ShuffleState::Disabled;
 	}
 
-	fn handle_message(&mut self, message: PlayerMessage) -> Vec<PlayerMessage> {
-		match message {
-			PlayerMessage::ReplacePlaylist(new_playlist) => {
-				// Drop stale commands from the previous playlist and stop current audio.
-				self.pending_messages.clear();
-				self.stop_current_playback();
-				self.current_index = None;
-				self.playlist = new_playlist;
-				self.shuffle_state = ShuffleState::Disabled;
-				self.original_playlist = None;
-				self.error_count = 0;
-				self.last_status = PlayStatus::Stopped;
-				Vec::new()
-			}
-			PlayerMessage::InsertSongs(song_ids) => {
-				if song_ids.is_empty() {
-					return Vec::new();
-				}
+	fn handle_replace_playlist(&mut self, new_playlist: Vec<u64>) {
+		self.stop_current_playback();
+		self.current_index = None;
+		self.playlist = new_playlist;
+		self.shuffle_state = ShuffleState::Disabled;
+		self.original_playlist = None;
+		self.error_count = 0;
+		self.last_status = PlayStatus::Stopped;
+	}
 
-				if self.playlist.is_empty() {
-					self.playlist.extend(song_ids.iter().copied());
-					self.current_index = Some(0);
-				} else {
-					let insert_pos = self
-						.current_index
-						.map(|idx| (idx + 1).min(self.playlist.len()))
-						.unwrap_or(self.playlist.len());
-					self.playlist.splice(insert_pos..insert_pos, song_ids.iter().copied());
-					if self.current_index.is_none() {
-						self.current_index = Some(0);
-					}
-				}
+	fn handle_insert_songs(&mut self, song_ids: &[u64]) {
+		if song_ids.is_empty() {
+			return;
+		}
 
-				let current_song = self.current_song_id();
-				if let Some(original) = self.original_playlist.as_mut() {
-					let insert_pos = current_song
-						.and_then(|id| original.iter().position(|origin_id| *origin_id == id).map(|i| i + 1))
-						.unwrap_or(original.len());
-					for (offset, id) in song_ids.iter().enumerate() {
-						original.insert((insert_pos + offset).min(original.len()), *id);
-					}
-				}
+		if self.playlist.is_empty() {
+			self.playlist.extend(song_ids.iter().copied());
+			self.current_index = Some(0);
+		} else {
+			let insert_pos = self
+				.current_index
+				.map(|idx| (idx + 1).min(self.playlist.len()))
+				.unwrap_or(self.playlist.len());
+			self.playlist.splice(insert_pos..insert_pos, song_ids.iter().copied());
+			if self.current_index.is_none() {
+				self.current_index = Some(0);
+			}
+		}
 
-				let to_prefetch = self.take_insert_prefetch_ids(&song_ids);
-				if to_prefetch.is_empty() {
-					Vec::new()
-				} else {
-					vec![PlayerMessage::Download(to_prefetch)]
-				}
+		let current_song = self.current_song_id();
+		if let Some(original) = self.original_playlist.as_mut() {
+			let insert_pos = current_song
+				.and_then(|id| original.iter().position(|origin_id| *origin_id == id).map(|i| i + 1))
+				.unwrap_or(original.len());
+			for (offset, id) in song_ids.iter().enumerate() {
+				original.insert((insert_pos + offset).min(original.len()), *id);
 			}
-			PlayerMessage::ShufflePlaylist => {
-				if self.playlist.is_empty() {
-					return Vec::new();
-				}
+		}
 
-				if self.shuffle_state == ShuffleState::Disabled {
-					self.original_playlist = Some(self.playlist.clone());
-					self.shuffle_state = ShuffleState::Enabled;
-				}
+		let to_prefetch = self.take_insert_prefetch_ids(&song_ids);
+		if !to_prefetch.is_empty() {
+			self.handle_download(to_prefetch);
+		}
+	}
 
-				self.reshuffle_from_backup(true);
-				Vec::new()
+	fn handle_shuffle_playlist(&mut self) {
+		if self.playlist.is_empty() {
+			return;
+		}
+
+		if self.shuffle_state == ShuffleState::Disabled {
+			self.original_playlist = Some(self.playlist.clone());
+			self.shuffle_state = ShuffleState::Enabled;
+		}
+
+		self.reshuffle_from_backup(true);
+	}
+
+	fn handle_restore_playlist_order(&mut self) {
+		self.restore_playlist_order_inner();
+	}
+
+	fn handle_set_play_mode(&mut self, mode: PlayMode) {
+		self.mode = mode;
+	}
+
+	fn handle_next(&mut self) {
+		self.current_index = self.next_index();
+		self.handle_start_current();
+	}
+
+	fn handle_prev(&mut self) {
+		self.current_index = self.prev_index();
+		self.handle_start_current();
+	}
+
+	fn handle_play_song(&mut self, song_id: u64) {
+		self.maybe_rebind_default_output_for_new_playback();
+
+		let previous_song = self.current_song_id();
+		if let Some(index) = self.playlist.iter().position(|id| *id == song_id) {
+			self.current_index = Some(index);
+		} else {
+			let insert_pos = self
+				.current_index
+				.map(|idx| (idx + 1).min(self.playlist.len()))
+				.unwrap_or(self.playlist.len());
+			self.playlist.insert(insert_pos, song_id);
+			self.current_index = Some(insert_pos);
+			if let Some(original) = self.original_playlist.as_mut() {
+				let original_insert = previous_song
+					.and_then(|id| original.iter().position(|origin_id| *origin_id == id).map(|i| i + 1))
+					.unwrap_or(original.len());
+				original.insert(original_insert.min(original.len()), song_id);
 			}
-			PlayerMessage::RestorePlaylistOrder => {
-				self.restore_playlist_order_inner();
-				Vec::new()
+		}
+		self.handle_start_current();
+	}
+
+	fn handle_seek(&mut self, position: time::Duration) {
+		if self.playlist.is_empty() {
+			self.current_index = None;
+			self.last_status = PlayStatus::Stopped;
+			return;
+		}
+
+		if self.current_index.is_none() {
+			self.current_index = Some(0);
+		}
+
+		if self.sink.empty() {
+			self.handle_start_current();
+			self.handle_apply_seek(position);
+		} else {
+			self.handle_apply_seek(position);
+		}
+	}
+
+	fn handle_apply_seek(&mut self, position: time::Duration) {
+		if let Err(e) = self.sink.try_seek(position) {
+			eprintln!("Error seeking to {:?}: {}", position, e);
+		}
+		self.last_status = if self.sink.is_paused() {
+			PlayStatus::Paused(self.playback_position())
+		} else {
+			PlayStatus::Playing(self.playback_position())
+		};
+	}
+
+	fn handle_toggle_pause_resume(&mut self) {
+		if self.playlist.is_empty() {
+			self.last_status = PlayStatus::Stopped;
+			return;
+		}
+		if self.sink.is_paused() {
+			self.maybe_rebind_default_output_for_resume();
+			self.sink.play();
+			self.last_status = PlayStatus::Playing(self.playback_position());
+		} else if self.sink.empty() {
+			self.maybe_rebind_default_output_for_new_playback();
+			if self.current_index.is_none() {
+				self.current_index = Some(0);
 			}
-			PlayerMessage::SetPlayMode(mode) => {
-				self.mode = mode;
-				Vec::new()
+			self.handle_start_current();
+		} else {
+			self.sink.pause();
+			self.last_status = PlayStatus::Paused(self.playback_position());
+		}
+	}
+
+	fn handle_pause(&mut self) {
+		if self.playlist.is_empty() {
+			self.last_status = PlayStatus::Stopped;
+			return;
+		}
+		self.sink.pause();
+		self.last_status = PlayStatus::Paused(self.playback_position());
+	}
+
+	fn handle_resume(&mut self) {
+		if self.playlist.is_empty() {
+			self.last_status = PlayStatus::Stopped;
+			return;
+		}
+
+		self.maybe_rebind_default_output_for_resume();
+
+		if self.sink.empty() {
+			self.maybe_rebind_default_output_for_new_playback();
+			if self.current_index.is_none() {
+				self.current_index = Some(0);
 			}
-			PlayerMessage::Next => {
+			self.handle_start_current();
+		} else {
+			self.sink.play();
+			self.last_status = PlayStatus::Playing(self.playback_position());
+		}
+	}
+
+	fn handle_tick(&mut self) {
+		if self.playlist.is_empty() {
+			self.current_index = None;
+			self.last_status = PlayStatus::Stopped;
+			return;
+		}
+
+		if self.current_index.is_none() {
+			self.current_index = Some(0);
+			self.handle_start_current();
+			return;
+		}
+
+		if self.sink.is_paused() {
+			self.last_status = PlayStatus::Paused(self.playback_position());
+			return;
+		}
+
+		if self.sink.empty() {
+			if !matches!(self.last_status, PlayStatus::Downloading)
+				&& !matches!(self.inspect_current_track(), CurrentTrackDecision::Downloading)
+				&& !matches!(self.inspect_current_track(), CurrentTrackDecision::NeedsDownload(_))
+				&& !matches!(self.play_mode(), PlayMode::LoopOne) 
+			{
 				self.current_index = self.next_index();
-				vec![PlayerMessage::StartCurrent]
 			}
-			PlayerMessage::Prev => {
-				self.current_index = self.prev_index();
-				vec![PlayerMessage::StartCurrent]
-			}
-			PlayerMessage::PlaySong(song_id) => {
-				let previous_song = self.current_song_id();
-				if let Some(index) = self.playlist.iter().position(|id| *id == song_id) {
-					self.current_index = Some(index);
-				} else {
-					let insert_pos = self
-						.current_index
-						.map(|idx| (idx + 1).min(self.playlist.len()))
-						.unwrap_or(self.playlist.len());
-					self.playlist.insert(insert_pos, song_id);
-					self.current_index = Some(insert_pos);
-					if let Some(original) = self.original_playlist.as_mut() {
-						let original_insert = previous_song
-							.and_then(|id| original.iter().position(|origin_id| *origin_id == id).map(|i| i + 1))
-							.unwrap_or(original.len());
-						original.insert(original_insert.min(original.len()), song_id);
-					}
-				}
-				vec![PlayerMessage::StartCurrent]
-			}
-			PlayerMessage::Seek(position) => {
-				if self.playlist.is_empty() {
-					self.current_index = None;
-					self.last_status = PlayStatus::Stopped;
-					return Vec::new();
-				}
+			self.handle_start_current();
+			return;
+		}
 
-				if self.current_index.is_none() {
-					self.current_index = Some(0);
-				}
+		self.last_status = PlayStatus::Playing(self.playback_position());
+	}
 
-				if self.sink.empty() {
-					vec![PlayerMessage::StartCurrent, PlayerMessage::ApplySeek(position)]
-				} else {
-					vec![PlayerMessage::ApplySeek(position)]
-				}
+	fn handle_start_current(&mut self) {
+		match self.inspect_current_track() {
+			CurrentTrackDecision::NoSong => {
+				self.last_status = PlayStatus::Stopped;
 			}
-			PlayerMessage::ApplySeek(position) => {
-				if let Err(e) = self.sink.try_seek(position) {
-					eprintln!("Error seeking to {:?}: {}", position, e);
-				}
-				self.last_status = if self.sink.is_paused() {
-					PlayStatus::Paused(self.playback_position())
-				} else {
-					PlayStatus::Playing(self.playback_position())
-				};
-				Vec::new()
-			}
-			PlayerMessage::TogglePauseResume => {
-				if self.playlist.is_empty() {
-					self.last_status = PlayStatus::Stopped;
-					return Vec::new();
-				}
-				if self.sink.is_paused() {
-					self.sink.play();
-					self.last_status = PlayStatus::Playing(self.playback_position());
-					Vec::new()
-				} else if self.sink.empty() {
-					if self.current_index.is_none() {
-						self.current_index = Some(0);
-					}
-					vec![PlayerMessage::StartCurrent]
-				} else {
-					self.sink.pause();
-					self.last_status = PlayStatus::Paused(self.playback_position());
-					Vec::new()
-				}
-			}
-			PlayerMessage::Pause => {
-				if self.playlist.is_empty() {
-					self.last_status = PlayStatus::Stopped;
-					return Vec::new();
-				}
-				self.sink.pause();
-				self.last_status = PlayStatus::Paused(self.playback_position());
-				Vec::new()
-			}
-			PlayerMessage::Resume => {
-				if self.playlist.is_empty() {
-					self.last_status = PlayStatus::Stopped;
-					return Vec::new();
-				}
-
-				if self.sink.empty() {
-					if self.current_index.is_none() {
-						self.current_index = Some(0);
-					}
-					vec![PlayerMessage::StartCurrent]
-				} else {
-					self.sink.play();
-					self.last_status = PlayStatus::Playing(self.playback_position());
-					Vec::new()
-				}
-			}
-			PlayerMessage::Tick => {
-				if self.playlist.is_empty() {
-					self.current_index = None;
-					self.last_status = PlayStatus::Stopped;
-					return Vec::new();
-				}
-
-				if self.current_index.is_none() {
-					self.current_index = Some(0);
-					return vec![PlayerMessage::StartCurrent];
-				}
-
-				if self.sink.is_paused() {
-					self.last_status = PlayStatus::Paused(self.playback_position());
-					return Vec::new();
-				}
-
-				if self.sink.empty() {
-					// Only advance on real track end; keep current index while waiting for download.
-					if !matches!(self.last_status, PlayStatus::Downloading)
-						&& !matches!(self.inspect_current_track(), CurrentTrackDecision::Downloading)
-						&& !matches!(self.inspect_current_track(), CurrentTrackDecision::NeedsDownload(_))
-					{
-						self.current_index = self.next_index();
-					}
-					return vec![PlayerMessage::StartCurrent];
-				}
-
-				self.last_status = PlayStatus::Playing(self.playback_position());
-				Vec::new()
-			}
-			PlayerMessage::StartCurrent => {
-				match self.inspect_current_track() {
-					CurrentTrackDecision::NoSong => {
-						self.last_status = PlayStatus::Stopped;
-						Vec::new()
-					}
-					CurrentTrackDecision::NeedsDownload(song_id) => {
-						self.songs.borrow_mut().insert(song_id, TrackSource::Missing);
-						self.stop_current_playback();
-						self.last_status = PlayStatus::Downloading;
-						let mut song_ids = vec![song_id];
-						song_ids.extend(self.predicted_download_ids());
-						song_ids.sort_unstable();
-						song_ids.dedup();
-						vec![PlayerMessage::Download(song_ids)]
-					}
-					CurrentTrackDecision::Downloading => {
-						self.stop_current_playback();
-						self.last_status = PlayStatus::Downloading;
-						Vec::new()
-					}
-					CurrentTrackDecision::Unplayable => vec![PlayerMessage::AdvanceAfterFailure],
-					CurrentTrackDecision::Ready(path) => {
-						let current_song = self.current_song_id();
-						if let Err(e) = self.play_song(&path) {
-							if let Some(song_id) = current_song {
-								eprintln!("Error playing song {}: {}", song_id, e);
-								self.songs.borrow_mut().insert(song_id, TrackSource::Unplayable);
-							}
-							return vec![PlayerMessage::AdvanceAfterFailure];
-						}
-						self.error_count = 0;
-						if let Some(song_id) = current_song {
-							self.push_history(song_id);
-						}
-						self.last_status = PlayStatus::Playing(self.playback_position());
-						let song_ids = self.predicted_download_ids();
-						if song_ids.is_empty() {
-							Vec::new()
-						} else {
-							vec![PlayerMessage::Download(song_ids)]
-						}
-					}
-				}
-			}
-			PlayerMessage::Download(song_ids) => {
-				if song_ids.is_empty() {
-					return Vec::new();
-				}
-				self.download_songs(&song_ids);
+			CurrentTrackDecision::NeedsDownload(song_id) => {
+				self.songs.borrow_mut().insert(song_id, TrackSource::Missing);
+				self.stop_current_playback();
 				self.last_status = PlayStatus::Downloading;
-				Vec::new()
+				let mut song_ids = vec![song_id];
+				song_ids.extend(self.predicted_download_ids());
+				song_ids.sort_unstable();
+				song_ids.dedup();
+				self.handle_download(song_ids);
 			}
-			PlayerMessage::AdvanceAfterFailure => {
-				self.error_count += 1;
-				if self.error_count < self.playlist.len() {
-					self.current_index = self.next_index();
-					vec![PlayerMessage::StartCurrent]
-				} else {
-					self.last_status = PlayStatus::Stopped;
-					Vec::new()
+			CurrentTrackDecision::Downloading => {
+				self.stop_current_playback();
+				self.last_status = PlayStatus::Downloading;
+			}
+			CurrentTrackDecision::Unplayable => self.handle_advance_after_failure(),
+			CurrentTrackDecision::Ready(path) => {
+				let current_song = self.current_song_id();
+				if let Err(e) = self.play_song(&path) {
+					if let Some(song_id) = current_song {
+						eprintln!("Error playing song {}: {}", song_id, e);
+						self.songs.borrow_mut().insert(song_id, TrackSource::Unplayable);
+					}
+					self.handle_advance_after_failure();
+					return;
+				}
+				self.error_count = 0;
+				if let Some(song_id) = current_song {
+					self.push_history(song_id);
+				}
+				self.last_status = PlayStatus::Playing(self.playback_position());
+				let song_ids = self.predicted_download_ids();
+				if !song_ids.is_empty() {
+					self.handle_download(song_ids);
 				}
 			}
+		}
+	}
+
+	fn handle_download(&mut self, song_ids: Vec<u64>) {
+		if song_ids.is_empty() {
+			return;
+		}
+		self.download_songs(&song_ids);
+		self.last_status = PlayStatus::Downloading;
+	}
+
+	fn handle_advance_after_failure(&mut self) {
+		self.error_count += 1;
+		if self.error_count < self.playlist.len() {
+			self.current_index = self.next_index();
+			self.handle_start_current();
+		} else {
+			self.last_status = PlayStatus::Stopped;
 		}
 	}
 
@@ -928,7 +922,7 @@ impl PlayerCore {
 
 	fn next_index(&mut self) -> Option<usize> {
 		match self.current_index {
-			Some(idx) if self.mode == PlayMode::LoopOne => Some(idx),
+			// Some(idx) if self.mode == PlayMode::LoopOne => Some(idx),
 			Some(idx) if idx + 1 < self.playlist.len() => Some(idx + 1),
 			Some(_) if self.shuffle_state == ShuffleState::Enabled && !self.playlist.is_empty() => {
 				self.reshuffle_from_backup(false);
@@ -1012,9 +1006,8 @@ impl PlayerCore {
 	}
 
 	pub fn event_loop(&mut self) -> PlayerStateFrame {
-		self.maybe_rebind_default_output_on_tick();
-		self.enqueue(PlayerMessage::Tick);
-		self.process_queue();
+		self.maybe_pause_for_default_output_change_on_tick();
+		self.handle_tick();
 		self.tick_counter = self.tick_counter.saturating_add(1);
 		if self.runtime_config.persist_every_ticks > 0
 			&& self.tick_counter % self.runtime_config.persist_every_ticks == 0
