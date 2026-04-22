@@ -1,12 +1,14 @@
-import { VerticalBox, ScrollView } from "std-widgets.slint";
+import { VerticalBox, ScrollView, ListView } from "std-widgets.slint";
 import { Palette } from "palette.slint";
 import { IconFont } from "./assets/icon/iconfont.slint";
 import { HorizontalDivider, VerticallDivider } from "./components/divider.slint";
+import { RouteProperty } from "./route.slint";
 
 export struct SideBarItemMessage {
     cover: image,
     name: string,
-    route: string
+    route: string,
+    type: int
 }
 
 export global SideBarProperty {
@@ -25,13 +27,16 @@ struct BarAnimationFrame {
 }
 
 component SideBarItem inherits Rectangle {
+    // 页面路径
+    in property <string> page-path;
     // 选中
     in-out property <int> active-item-id;
     in property <int> item-id;
 
-    // 文字环图标
+    // 文字和图标
     in property <string> text;
     in property <string> iconfont;
+    in property <image> icon;
 
     // 动画
     in-out property <bool> active : item-id == active-item-id;
@@ -132,9 +137,10 @@ component SideBarItem inherits Rectangle {
     content :=HorizontalLayout {
         width: 100%;
         height: 100%;
+        spacing: 10px;
         x: 0px;
 
-        if !root.iconfont.is-empty: icon:= IconFont {
+        if !root.iconfont.is-empty : IconFont {
             text: root.iconfont;
             font-size: self.height - 18px;
             vertical-alignment: center;
@@ -142,7 +148,22 @@ component SideBarItem inherits Rectangle {
             height: 100%;
             width: 35px;
         }
-        
+
+        if root.iconfont.is-empty : Rectangle {
+            width: 35px;
+            Rectangle {
+                height: 24px;
+                width: 24px;
+                clip: true;
+                border-radius: 4px;
+                Image {
+                    source: icon;
+                    height: 100%;
+                    width: 100%;
+                }
+            }
+        }
+
         if !toggled: Text {
             text: text;
             vertical-alignment: center;
@@ -166,19 +187,21 @@ component SideBarItem inherits Rectangle {
         height: 100%;
 
         clicked => {
-            move-direction = active-item-id - item-id;
-            active-item-id = item-id;
+            if RouteProperty.navigate(root.page-path) {
+                move-direction = active-item-id - item-id;
+                active-item-id = item-id;
+            }
         }
     }
 }
 
-export struct Item {
+export struct StaticItem {
     text: string,
     iconfont: string,
 }
 
 export component SideBar inherits Rectangle {
-    in-out property <[Item]> items : [
+    in-out property <[StaticItem]> items : [
         {
             text: "主页",
             iconfont: "\u{e710}"
@@ -192,7 +215,7 @@ export component SideBar inherits Rectangle {
     in-out property <bool> toggled: false;
     
     out property <length> initia-with: 300px;
-    out property <length> compact-width: 35px + main_item.padding * 2;
+    out property <length> compact-width: 45px;
 
     width: toggled ? compact-width : initia-with;
     clip: true;
@@ -217,14 +240,15 @@ export component SideBar inherits Rectangle {
     }
 
     property <int> move-direction;
-    main_item := VerticalBox {
+    main_item := VerticalLayout {
         width: 100%;
         spacing: 4px;
         
         toggle-button:= Rectangle {
             height: 36px;
-            width: 35px;
-            VerticalLayout {
+            width: 45px;
+            Rectangle {
+                width: 35px;
                 IconFont {
                     overflow: TextOverflow.clip;
                     text: "\u{f076a}";
@@ -239,18 +263,24 @@ export component SideBar inherits Rectangle {
                         }
                     }
                 }
+
+                border-radius: 4px;
+
+                states [
+                    hover when ta.has-hover: {
+                        background: Palette.neutral-light;
+                    }
+                ]
             }
-            border-radius: 4px;
-            states [
-                hover when ta.has-hover: {
-                    background: Palette.theme-lighter;
-                }
-            ]
         }
 
         ScrollView {
+            width: 100%;
             vertical-stretch: 1;
             VerticalLayout {
+                padding-left: 5px;
+                padding-right: 5px;
+
                 spacing: 4px;
                 alignment: LayoutAlignment.stretch;
                 for item[i] in items : SideBarItem {
@@ -261,14 +291,37 @@ export component SideBar inherits Rectangle {
                     move-direction <=> root.move-direction;
                     toggled: root.toggled;
                 }
-                HorizontalDivider {}
-                for item[i] in SideBarProperty.created-playlist : SideBarItem{
-                    item-id: i + 20;
-                    text: item.name;
 
-                    active-item-id <=> root.active-item-id;
-                    move-direction <=> root.move-direction;
-                    toggled: root.toggled;
+                HorizontalDivider {}
+
+                if !toggled:Rectangle {
+                    ListView {
+                        for item[i] in SideBarProperty.created-playlist : SideBarItem{
+                            item-id: i + 20;
+                            text: item.name;
+                            icon: item.cover;
+                            page-path: item.route;
+                            active-item-id <=> root.active-item-id;
+                            move-direction <=> root.move-direction;
+                            toggled: root.toggled;
+                        }
+                    }
+                }
+
+                HorizontalDivider {}
+
+                if !toggled:Rectangle {
+                    ListView {
+                        for item[i] in SideBarProperty.created-playlist : SideBarItem{
+                            item-id: i + 20;
+                            text: item.name;
+                            icon: item.cover;
+                            page-path: item.route;
+                            active-item-id <=> root.active-item-id;
+                            move-direction <=> root.move-direction;
+                            toggled: root.toggled;
+                        }
+                    }
                 }
             }
         }
@@ -288,5 +341,4 @@ export component SideBar inherits Rectangle {
         easing: ease-out;
         delay: 10ms;
     }
-
 }

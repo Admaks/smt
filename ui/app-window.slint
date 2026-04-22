@@ -2,13 +2,13 @@ import { Button, VerticalBox, HorizontalBox, LineEdit } from "std-widgets.slint"
 import { SideBar, SideBarProperty, SideBarItemMessage } from "sidebar.slint";
 import { Palette } from "palette.slint";
 import { Login, LoginProperty } from "./pages/login.slint";
-import { AppStatus, AppKeys, PlayerStatus } from "app-status.slint";
+import { AppStatus, AppKeys } from "app-status.slint";
 import { PlaylistProperty, Playlist } from "./pages/playlist.slint";
 import { SongDetail, SongListProperty } from "./components/songlist.slint";
-import { Player } from "components/player.slint";
+import { Player, PlayerProperty } from "components/player.slint";
 import { VerticallDivider } from "components/divider.slint";
-import { Route } from "route.slint";
-export { LoginProperty, AppStatus, SongDetail, PlaylistProperty, SongListProperty, PlayerStatus, SideBarProperty, SideBarItemMessage }
+import { Route, RouteProperty } from "route.slint";
+export { LoginProperty, AppStatus, SongDetail, PlaylistProperty, SongListProperty, PlayerProperty, SideBarProperty, SideBarItemMessage, RouteProperty }
 
 
 export component AppWindow inherits Window {

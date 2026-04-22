@@ -220,8 +220,8 @@ component InnerSongList inherits Rectangle{
                     property <length> heart-size: 16px;
                     property <color> hover-color: #C70039;
                     property <color> common-color: #E63946;
-                    IconFontFilled {
-                        text: data.loved ? "\u{e708}" : "\u{e6fb}";
+                    if data.loved : IconFontFilled {
+                        text: "\u{e708}";
                         color: common-color;
                         width: 16px;
                         font-size: heart-size;
@@ -235,7 +235,24 @@ component InnerSongList inherits Rectangle{
                                 }
                             }
                         ]
-                    } 
+                    }
+                    
+                    if !data.loved : IconFont {
+                        text: "\u{e6fb}";
+                        color: common-color;
+                        width: 16px;
+                        font-size: heart-size;
+                        states [
+                            hover when ta_heart.has-hover: {
+                                color: hover-color;
+                                in {
+                                    animate color{
+                                        duration: 100ms;
+                                    }
+                                }
+                            }
+                        ]
+                    }
                 }
             }
         }

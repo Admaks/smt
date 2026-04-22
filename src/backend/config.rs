@@ -54,9 +54,11 @@ impl Config {
     // Poll default output device at a low frequency to avoid per-tick overhead.
     pub const PLAYER_DEFAULT_OUTPUT_CHECK_INTERVAL_MS: u64 = 1000;
 
-    pub const SONGLIST_COVER_FETCH_CONCURRENCY: usize = 4;
-    pub const SONGLIST_UI_UPDATE_BATCH: usize = 8;
+    pub const COVER_FETCH_CONCURRENCY: usize = 4;
+    pub const COVER_UPDATE_BATCH: usize = 8;
 
     pub const TRACK_DETAIL_MEMERY_CACHE_CAPACITY: u64 = 1024 * 1024 * 1;
     pub const PLAYLIST_MEMERY_CACHE_CAPACITY: u64 = 1024 * 1024 * 1;
+
+    pub const NAVIGATOR_HISTORY_MAX: usize = 100;
 }

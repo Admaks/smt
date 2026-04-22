@@ -5,9 +5,9 @@ pub mod playlist;
 pub mod songlist;
 pub mod player;
 pub mod types;
-pub mod route;
+pub mod navigator;
 pub mod sidebar;
-pub mod app_runtime;
+pub mod app;
 
 
 use i_slint_backend_winit::{WinitWindowAccessor};
@@ -18,37 +18,10 @@ use std::{
 };
 use winit::platform::windows::WindowExtWindows;
 
-use crate::route::Route;
-pub type AppLibRc = Rc<AppLib>;
-pub type AppWeak = Weak<AppWindow>;
+use crate::app::App;
 
 
 slint::include_modules!();
-
-fn load_app_status(app_weak: Weak<AppWindow>, app_lib: AppLibRc) {
-    let app = app_weak.upgrade().unwrap();
-    app
-        .global::<PlayerStatus>()
-        .set_event_loop_gap(app_lib.config.player_event_loop_gap_ms as i64);
-
-    if let Some(user) = app_lib.login_user.borrow().as_ref() {
-        app.global::<AppStatus>().set_logined(true);
-        let (id_1, id_2) = smt::u64_to_i32x2(user.id);
-        app.global::<AppStatus>().set_login_id_1(id_1);
-        app.global::<AppStatus>().set_login_id_2(id_2);
-    } else {
-        app.global::<AppStatus>().set_logined(false);
-    }
-}
-
-fn bind_event(app_weak: Weak<AppWindow>, app_lib: AppLibRc) {
-    load_app_status(app_weak.clone(), app_lib.clone());
-    playlist::bind_playlist_page(app_weak.clone(), app_lib.clone());
-    songlist::bind_songlist(app_weak.clone(), app_lib.clone());
-    player::bind_player(app_weak.clone(), app_lib.clone());
-    sidebar::bind_sidebar(app_weak.clone(), app_lib.clone());
-    Route::from_path("playlist/2115392436").unwrap().set_route(&app_weak, app_lib);
-}
 
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -56,8 +29,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let app_weak = app.as_weak();
 
     futures::executor::block_on(async move {
-        
-        let _ = slint::spawn_local({
+        slint::spawn_local({
             let app_weak = app_weak.clone();
             async move {
             app_weak
@@ -68,9 +40,12 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .unwrap()
                 .set_system_backdrop(winit::platform::windows::BackdropType::MainWindow);
                 println!("mica is ok");
-        }});
+        }}).unwrap();
+
 
         let app_lib = Rc::new(AppLib::new().await);
+        let app_runtime = App::new(app_weak.clone(), app_lib.clone());
+        
         if app_lib.login_user.borrow().is_none() {
             app_weak
                 .upgrade()
@@ -78,35 +53,34 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .global::<AppStatus>()
                 .set_logined(false);
             app.global::<LoginProperty>().on_login_ready({
-                let app_lib = app_lib.clone();
-                let app_weak = app.as_weak();
+                let app_runtime = app_runtime.clone();
                 move || {
-                    bind_event(app_weak.clone(), app_lib.clone());
+                    app_runtime.bind_event();
                 }
             });
-            login::bind_login_page(app_weak.clone(), app_lib.clone());
+            app_runtime.bind_login_page();
         } else {
             app_weak
                 .upgrade()
                 .unwrap()
                 .global::<AppStatus>()
                 .set_logined(true);
-            bind_event(app_weak.clone(), app_lib.clone());
+            app_runtime.bind_event();
         }
 
 
-        app.window().on_winit_window_event({
-            let app_weak = app_weak.clone();
-            move |_window, window_event| {
-                match window_event {
-                    winit::event::WindowEvent::Focused(true) => {
-                        app_weak.unwrap().invoke_set_foucs();
-                    }
-                    _ => {}
-                }
-                i_slint_backend_winit::EventResult::Propagate
-            }
-        });
+        // app.window().on_winit_window_event({
+        //     let app_weak = app_weak.clone();
+        //     move |_window, window_event| {
+        //         match window_event {
+        //             winit::event::WindowEvent::Focused(true) => {
+        //                 app_runtime.app_weak.upgrade().unwrap().invoke_set_foucs();
+        //             }
+        //             _ => {}
+        //         }
+        //         i_slint_backend_winit::EventResult::Propagate
+        //     }
+        // });
 
         app.run().unwrap();
     });

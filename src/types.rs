@@ -1,6 +1,7 @@
 use smt::model::TrackDetail;
 
-use crate::{AppLibRc, SongDetail};
+use crate::{SongDetail};
+use crate::app::AppLibRc;
 
 pub fn to_track_detail_detail(app_lib: AppLibRc ,track_detail: TrackDetail, image: slint::Image) -> SongDetail {
     let (album_id_1, album_id_2) = smt::u64_to_i32x2(track_detail.album.id);

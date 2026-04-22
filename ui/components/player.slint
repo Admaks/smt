@@ -1,9 +1,41 @@
-import { AppStatus, PlayerStatus } from "../app-status.slint";
+import { AppStatus } from "../app-status.slint";
 import { Slider } from "std-widgets.slint";
 import { MarginBox } from "margin-box.slint";
 import { HorizontalDivider } from "divider.slint";
 import { Palette } from "../palette.slint";
 import { IconFontFilled } from "../assets/icon/iconfont.slint";
+import { SongDetail } from "../types/types.slint";
+
+
+export global PlayerProperty {
+    in property <SongDetail> playing-song;
+
+    in-out property <int> status-tragger: 1;
+    out property <int> status-none: 0;
+    out property <int> status-pause: 1;
+    out property <int> status-playing: 2;
+    out property <int> status-loading: 3;
+
+    in-out property <bool> shuffled: false;
+    in-out property <int> loop-type: 0;
+
+
+    in-out property <string> played-duration: "0:00:00";
+    in-out property <string> total-duraiton: "0:00:00";
+    
+    in-out property <int> played-duration-int: 0;
+    in-out property <int> total-duration-int: 1;
+
+    callback next();
+    callback prev();
+    callback pause-resume();
+    callback seek-to-duration(int);
+    callback event-loop();
+    callback toggle-shuffle();
+    callback toggle-repeat();
+
+    in-out property <duration> event-loop-gap: 100ms;
+}
 
 
 component PauseButton inherits Rectangle {
@@ -48,13 +80,13 @@ component PauseButton inherits Rectangle {
             pause := TouchArea {
                 IconFontFilled {
                     vertical-alignment: center;
-                    text:  PlayerStatus.status-tragger == PlayerStatus.status-none 
-                        || PlayerStatus.status-tragger == PlayerStatus.status-pause? "\u{f611}" : "\u{e8e0}";
+                    text:  PlayerProperty.status-tragger == PlayerProperty.status-none 
+                        || PlayerProperty.status-tragger == PlayerProperty.status-pause? "\u{f611}" : "\u{e8e0}";
                     font-size: 28px;
                 }
 
                 clicked => {
-                    PlayerStatus.pause-resume();
+                    PlayerProperty.pause-resume();
                 }
             }
         }
@@ -91,10 +123,10 @@ export component Player inherits Rectangle {
     background: white;
 
     Timer {
-        interval: PlayerStatus.event-loop-gap;
+        interval: PlayerProperty.event-loop-gap;
         running: true;
         triggered => {
-            PlayerStatus.event-loop();
+            PlayerProperty.event-loop();
             slider.update-slider();
         }
     }
@@ -112,7 +144,7 @@ export component Player inherits Rectangle {
             padding-left: 10px;
             padding-right: 10px;
             Text {
-                text: PlayerStatus.played-duration;
+                text: PlayerProperty.played-duration;
                 vertical-alignment: center;
             }
 
@@ -122,7 +154,7 @@ export component Player inherits Rectangle {
 
                 slider := Slider {
                     minimum: 0;
-                    maximum: PlayerStatus.total-duration-int;
+                    maximum: PlayerProperty.total-duration-int;
                     value: 0;
                     width: 100%;
                     step: 10 * 1000;
@@ -130,7 +162,7 @@ export component Player inherits Rectangle {
                     property <bool> user-inputing;
 
                     released(position) => {
-                        PlayerStatus.seek-to-duration(position);
+                        PlayerProperty.seek-to-duration(position);
                         user-inputing = false;
                     }
 
@@ -141,14 +173,14 @@ export component Player inherits Rectangle {
                     
                     function update-slider() {
                         if !user-inputing {
-                            self.value = PlayerStatus.played-duration-int;
+                            self.value = PlayerProperty.played-duration-int;
                         }
                     }
                 }
             }
             
             Text {
-                text: PlayerStatus.total-duraiton;
+                text: PlayerProperty.total-duraiton;
                 vertical-alignment: center;
             }
         }
@@ -182,7 +214,7 @@ export component Player inherits Rectangle {
                             Image {
                                 width: 100%;
                                 height: 100%;
-                                source: PlayerStatus.playing-song.image;
+                                source: PlayerProperty.playing-song.image;
                             }
                         }
                     }
@@ -193,7 +225,7 @@ export component Player inherits Rectangle {
                         // 歌曲名
                         Text {
                             vertical-alignment: center;
-                            text: PlayerStatus.playing-song.name;
+                            text: PlayerProperty.playing-song.name;
                             color: Palette.neutral-primary;
                             font-size: 20px;
                             font-weight: 400;
@@ -201,9 +233,9 @@ export component Player inherits Rectangle {
                             font-family: "Microsoft YaHei";
                         }
                         // 歌手
-                        if !PlayerStatus.playing-song.singer.is-empty : Text {
+                        if !PlayerProperty.playing-song.singer.is-empty : Text {
                             vertical-alignment: top;
-                            text:  "\u{2022} " + PlayerStatus.playing-song.singer;
+                            text:  "\u{2022} " + PlayerProperty.playing-song.singer;
                             color: Palette.neutral-secondary;
                             overflow: elide;
                             font-size: 14px;    
@@ -232,16 +264,16 @@ export component Player inherits Rectangle {
                         horizontal-stretch: 1;
                         CommonButton {
                             iconfont: {
-                                if PlayerStatus.loop-type == 0 {
+                                if PlayerProperty.loop-type == 0 {
                                     "\u{f175}" // no repeat
-                                } else if PlayerStatus.loop-type == 1 {
+                                } else if PlayerProperty.loop-type == 1 {
                                     "\u{ef34}" // 1 repeat
                                 } else  { 
                                     "\u{f172}"// repeat all
                                 }
                             }
                             clicked => {
-                                PlayerStatus.toggle-repeat();
+                                PlayerProperty.toggle-repeat();
                             }
                         }
                         // no repeat 
@@ -253,7 +285,7 @@ export component Player inherits Rectangle {
                         CommonButton {
                             iconfont: "\u{e9d2}";
                             clicked => {
-                                PlayerStatus.prev();
+                                PlayerProperty.prev();
                             }
                         }
                     }
@@ -270,7 +302,7 @@ export component Player inherits Rectangle {
                         CommonButton {
                             iconfont: "\u{e876}";
                             clicked => {
-                                PlayerStatus.next();
+                                PlayerProperty.next();
                             }
                         }
                     }
@@ -278,9 +310,9 @@ export component Player inherits Rectangle {
                     Rectangle {
                         horizontal-stretch: 1;
                         CommonButton {
-                            iconfont: PlayerStatus.shuffled ? "\u{ef39}" : "\u{ef3f}";
+                            iconfont: PlayerProperty.shuffled ? "\u{ef39}" : "\u{ef3f}";
                             clicked => {
-                                PlayerStatus.toggle-shuffle();
+                                PlayerProperty.toggle-shuffle();
                             }
                         }
                         // no shuffle ef3f
