@@ -1,0 +1,16 @@
+import { AppStatus } from "app-status.slint";
+import { Playlist } from "pages/playlist.slint";
+
+export global RouteProperty {
+    callback navigate(string);
+    callback backward();
+    callback forward();
+}
+
+export component Route inherits Rectangle{
+    in property <length> margin;
+
+    if AppStatus.route == 1 : Playlist{
+        margin: root.margin;
+    }
+}

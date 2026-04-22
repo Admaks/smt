@@ -2,11 +2,9 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-
-
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(default)]
-pub struct Config{
+pub struct Config {
     pub cookie_store_path: PathBuf,
     pub cache_dir: PathBuf,
     pub max_cons: usize,
@@ -38,25 +36,27 @@ impl Default for Config {
     }
 }
 
-
 impl Config {
-  // Low-level tuning knobs: compile-time constants, not user-facing config fields.
-  pub const PLAYER_QUEUE_BUDGET: usize = 256;
-  pub const MUSIC_CACHE_SUBDIR: &'static str = "music";
-  pub const IMAGE_CACHE_SUBDIR: &'static str = "image";
+    // Low-level tuning knobs: compile-time constants, not user-facing config fields.
+    pub const PLAYER_QUEUE_BUDGET: usize = 256;
+    pub const MUSIC_CACHE_SUBDIR: &'static str = "music";
+    pub const IMAGE_CACHE_SUBDIR: &'static str = "image";
 
-  pub const PLAYER_STATE_TMP_SUFFIX: &'static str = ".tmp";
+    pub const PLAYER_STATE_TMP_SUFFIX: &'static str = ".tmp";
 
-  pub const IMAGE_DOWNLOAD_CONCURRENCY: usize = 8;
-  pub const AUDIO_DOWNLOAD_CONCURRENCY: usize = 5;
-  pub const DOWNLOAD_CONNECT_TIMEOUT_SECS: u64 = 8;
-  pub const DOWNLOAD_TIMEOUT_SECS: u64 = 20;
-  pub const DOWNLOAD_MAX_RETRIES: usize = 2;
-  pub const DOWNLOAD_RETRY_BACKOFF_MS: u64 = 150;
+    pub const IMAGE_DOWNLOAD_CONCURRENCY: usize = 8;
+    pub const AUDIO_DOWNLOAD_CONCURRENCY: usize = 5;
+    pub const DOWNLOAD_CONNECT_TIMEOUT_SECS: u64 = 8;
+    pub const DOWNLOAD_TIMEOUT_SECS: u64 = 20;
+    pub const DOWNLOAD_MAX_RETRIES: usize = 2;
+    pub const DOWNLOAD_RETRY_BACKOFF_MS: u64 = 150;
 
-  // Poll default output device at a low frequency to avoid per-tick overhead.
-  pub const PLAYER_DEFAULT_OUTPUT_CHECK_INTERVAL_MS: u64 = 1000;
+    // Poll default output device at a low frequency to avoid per-tick overhead.
+    pub const PLAYER_DEFAULT_OUTPUT_CHECK_INTERVAL_MS: u64 = 1000;
 
-  pub const SONGLIST_COVER_FETCH_CONCURRENCY: usize = 4;
-  pub const SONGLIST_UI_UPDATE_BATCH: usize = 8;
+    pub const SONGLIST_COVER_FETCH_CONCURRENCY: usize = 4;
+    pub const SONGLIST_UI_UPDATE_BATCH: usize = 8;
+
+    pub const TRACK_DETAIL_MEMERY_CACHE_CAPACITY: u64 = 1024 * 1024 * 1;
+    pub const PLAYLIST_MEMERY_CACHE_CAPACITY: u64 = 1024 * 1024 * 1;
 }

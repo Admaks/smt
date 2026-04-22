@@ -7,9 +7,12 @@ import { AppStatus, ScrollStatus } from "../app-status.slint";
 
 import "../assets/fonts/HarmonyOS_Sans_SC_Regular.ttf";
 
-export global PlaylistProperty {
+export global PlaylistProperty{
     in-out property <[SongDetail]> song-data;
-    callback load-data(id_1: int, id_2: int);
+    in-out property <int> playlist-id-1;
+    in-out property <int> playlist-id-2: 2115392436;
+
+
     in-out property <string> name;
     in-out property <image>  cover;
     in-out property <string> create-time;
@@ -31,123 +34,117 @@ export component HeaderInner inherits MarginBox{
 
     margin: 15px;
 
-    // MarginBox {
-        HorizontalLayout {
+    HorizontalLayout {
+        height: 100%;
+        width: 100%;
+        Rectangle {
+            Image {
+                source: PlaylistProperty.cover;
+                height: parent.height;
+                width: parent.width;
+            }
+            border-radius: 8px;
+            clip: true;
+            width: self.height;
+        }
+
+        VerticalLayout {
             height: 100%;
-            width: 100%;
-            Rectangle {
-                Image {
-                    source: PlaylistProperty.cover;
-                    height: parent.height;
-                    width: parent.width;
-                }
-                border-radius: 8px;
-                clip: true;
-                width: self.height;
+            padding-left: 25px;
+            horizontal-stretch: 1;
+
+            property <length> split-height: 4px;
+            // property <length> content-height: parent.height;
+            property <length> title-height: 30px;
+            property <length> creator-height: 30px;
+            property <length> control-height: 30px;
+            property <length> description-height:parent.height - title-height - creator-height - control-height - split-height * 3;
+            
+            spacing: split-height;
+
+            Text {
+                text: PlaylistProperty.name;
+                font-size: 20px;
+                font-weight: 600;
+                height: title-height;
+                overflow: elide;
             }
 
-            MarginBox {
-                margin-left: 25px;
-                horizontal-stretch: 1;
-                height: 100%;
-                VerticalLayout {
-                    height: 100%;
-                    padding: 0px;
+            HorizontalLayout {
+                height: creator-height;
+                spacing: 0px;
+                alignment: start; 
+                Rectangle {
+                    Image {
+                        source: PlaylistProperty.creator-avatar;
+                        height: parent.height;
+                        width: parent.width;
+                    }
+                    border-radius: creator-height / 2;
+                    width: self.height;
+                    clip: true;
+                }
+
+                Rectangle {
+                    width: 4px;
+                }
+
+                Text {
+                    text: PlaylistProperty.creator-name;
+                    font-size: 12px;
+                    vertical-alignment: center;
+                    color: Palette.neutral-secondary;
+                }
+
+                Rectangle {
+                    width: 10px;
+                }
+
+                Text {
+                    text: PlaylistProperty.create-time + "创建";
+                    font-size: 12px;
+                    vertical-alignment: center;
+                    color: Palette.neutral-tertiary;
+                }
+            }
+
+
+            Rectangle {
+                clip: true;
+                height: description-height;
+                // vertical-stretch: 1;
+                Text {
+                    text: PlaylistProperty.description;
+                    wrap: word-wrap;
+                    overflow: elide;
+                    font-size: 12px;
+                    width: 100%;
+                    height: parent.height;
+                }
+            }
+
+            HorizontalLayout {
+                height: control-height;
+                alignment: start;
+                spacing: 10px;
+                padding: 0px;
+                Button {
+                    text: "播放全部";
                     
-                    property <length> split-height: 4px;
-                    // property <length> content-height: parent.height;
-                    property <length> title-height: 30px;
-                    property <length> creator-height: 30px;
-                    property <length> control-height: 30px;
-                    property <length> description-height:parent.height - title-height - creator-height - control-height - split-height * 3;
-                    
-                    spacing: split-height;
+                    icon: @image-url("../assets/icon/svg/play.svg");
+                    colorize-icon: true;
+                    primary: true;
+                }
 
-                    Text {
-                        text: PlaylistProperty.name;
-                        font-size: 20px;
-                        font-weight: 600;
-                        height: title-height;
-                        overflow: elide;
-                    }
-
-                    HorizontalLayout {
-                        height: creator-height;
-                        spacing: 0px;
-                        alignment: start; 
-                        Rectangle {
-                            Image {
-                                source: PlaylistProperty.creator-avatar;
-                                height: parent.height;
-                                width: parent.width;
-                            }
-                            border-radius: creator-height / 2;
-                            width: self.height;
-                            clip: true;
-                        }
-
-                        Rectangle {
-                            width: 4px;
-                        }
-
-                        Text {
-                            text: PlaylistProperty.creator-name;
-                            font-size: 12px;
-                            vertical-alignment: center;
-                            color: Palette.neutral-secondary;
-                        }
-
-                        Rectangle {
-                            width: 10px;
-                        }
-
-                        Text {
-                            text: PlaylistProperty.create-time + "创建";
-                            font-size: 12px;
-                            vertical-alignment: center;
-                            color: Palette.neutral-tertiary;
-                        }
-                    }
-
-
-                    Rectangle {
-                        clip: true;
-                        height: description-height;
-                        // vertical-stretch: 1;
-                        Text {
-                            text: PlaylistProperty.description;
-                            wrap: word-wrap;
-                            overflow: elide;
-                            font-size: 12px;
-                            width: 100%;
-                            height: parent.height;
-                        }
-                    }
-
-                    HorizontalLayout {
-                        height: control-height;
-                        alignment: start;
-                        spacing: 10px;
-                        padding: 0px;
-                        Button {
-                            text: "播放全部";
-                            
-                            icon: @image-url("../assets/icon/svg/play.svg");
-                            colorize-icon: true;
-                            primary: true;
-                        }
-
-                        if PlaylistProperty.subscribable: Button {
-                            text: PlaylistProperty.subscribed ? "取消收藏" : "收藏";
-                            icon: PlaylistProperty.subscribed ? @image-url("../assets/icon/svg/collections_empty.svg") 
-                                : @image-url("../assets/icon/svg/collections_empty.svg");
-                            colorize-icon: true;
-                        }
-                    }
+                if PlaylistProperty.subscribable: Button {
+                    text: PlaylistProperty.subscribed ? "取消收藏" : "收藏";
+                    icon: PlaylistProperty.subscribed ? @image-url("../assets/icon/svg/collections_empty.svg") 
+                        : @image-url("../assets/icon/svg/collections_empty.svg");
+                    colorize-icon: true;
                 }
             }
         }
-    //}
+    }
 }
 
 
@@ -160,35 +157,21 @@ export component Header inherits MarginBox {
     margin-top: 10px;
     margin-buttom: 30px;
     vertical-stretch: 0;
-    // height: !minimize ? 240px : 180px;
 
-    // animate height {
-    //      duration: 100ms;
-    // }
-
-    HeaderInner {
-        // minimize: root.minimize;
-    }
+    HeaderInner { }
 }
 
 export component Playlist inherits Rectangle{
-    in-out property <int> playlist-id-1: 0;
-    in-out property <int> playlist-id-2: 2115392436;
-
-//    in-out property <int> playlist-id-1: 4;
-//    in-out property <int> playlist-id-2: 427189786;
-
-//https://music.163.com/playlist?id=2115392436&uct2=U2FsdGVkX184fd21Xe/dXXGV/06jG/k5IRbs8RlZ9I8=
     in-out property <length> margin;
 
     property <length> header-height: header.max-height;
-
+    property <length> virtual-scroll: 0;
+    property <length> virtual-space: header.max-height - header.min-height;
 
     VerticalLayout {
         header := Header {
             margin-page: root.margin;
             height: header-height;
-            // minimize: songlist.view-content;
         }
 
         songlist := Songlist {
@@ -197,15 +180,11 @@ export component Playlist inherits Rectangle{
         }
     }
 
-    property <length> virtual-scroll: 0;
-    property <length> virtual-space: header.max-height - header.min-height;
-
     scroll := ScrollView {
         width: parent.width;
         height: parent.height;
         viewport-height: header.max-height + songlist.content-viewport-height;
         viewport-width: 1px;
-        vertical-scrollbar-policy: ScrollBarPolicy.always-on;
 
         scrolled => {
             let total_scroll = -self.viewport-y;
@@ -221,7 +200,4 @@ export component Playlist inherits Rectangle{
         }
     }
 
-    init => {
-        PlaylistProperty.load-data(playlist-id-1, playlist-id-2);
-    }
 }

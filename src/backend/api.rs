@@ -1,11 +1,9 @@
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{self, Duration};
 use anyhow::{Context, bail};
 use futures::stream::{self, StreamExt};
-// use crate::futures::RuntimeBridge;
-// use crate::{model, runtime_bridge};
 use ncm_api_rs::{create_client, ApiClient, Query};
 use reqwest::header::{CACHE_CONTROL, COOKIE, HeaderValue, PRAGMA, REFERER, USER_AGENT};
 use tokio::fs;
@@ -86,9 +84,6 @@ impl NcmApi {
             cookie: Arc::from(cookie),
             image_download_sem: Arc::new(Semaphore::new(Config::IMAGE_DOWNLOAD_CONCURRENCY)),
             image_inflight: Arc::new(Mutex::new(HashMap::new())),
-            // runtime_bridge: Arc::new(RuntimeBridge::new().unwrap_or_else(|err| {
-            //     panic!("failed to initialize runtime bridge for `NcmApi`: {err}")
-            // })),
         }
     }
 
@@ -207,14 +202,15 @@ impl NcmApi {
     }
 
 
-    pub async fn playlist_detail(&self, id: u64, s: Option<i32>) -> anyhow::Result<model::Playlist> {
+    pub async fn playlist_detail(&self, id: u64, s: Option<i32>) -> anyhow::Result<model::PlaylistDetail> {
         let mut params = Query::new().param("id", &id.to_string());
         if let Some(s) = s {
             params = params.param("s", &s.to_string())
         }
 
-        let response = self.client.read().await.playlist_detail(&params).await?;
-        let res: model::Playlist = response.body["playlist"].clone().try_into()?;
+
+        let mut response = self.client.read().await.playlist_detail(&params).await?;
+        let res: model::PlaylistDetail = response.body["playlist"].take().try_into()?;
 
         Ok(res)
     }
@@ -226,20 +222,36 @@ impl NcmApi {
 
         let ids = Self::comma_ids(&*ids);
 
-        let response = self.client.read().await.song_detail(&Query::new().param("ids", &ids)).await?;
+        let mut response = self.client.read().await.song_detail(&Query::new().param("ids", &ids)).await?;
 
         response.body["songs"]
-            .as_array()
+            .as_array_mut()
             .ok_or(anyhow::anyhow!("songs not found"))?
-            .into_iter()
-            .map(|x| {x.clone().try_into()})
+            .iter_mut()
+            .map(|x| {x.take().try_into()})
             .collect()
     }
 
     pub async fn like_list(&self, uid:u64) -> anyhow::Result<HashSet<u64>> {
-        let response = self.client.read().await.likelist(&Query::new().param("uid", &uid.to_string())).await?;
-        let ids = serde_json::from_value(response.body["ids"].clone())?;
+        let mut response = self.client.read().await.likelist(&Query::new().param("uid", &uid.to_string())).await?;
+        let ids = serde_json::from_value(response.body["ids"].take())?;
         Ok(ids)
+    }
+
+    pub async fn user_playlist(&self, uid:u64) -> anyhow::Result<model::UserPlaylists> {
+        let mut response = self.client.read().await.user_playlist(&Query::new().param("uid", &uid.to_string())).await?;
+        let mut create = Vec::<model::PlaylistShortInfo>::new();
+        let mut subscribe = Vec::<model::PlaylistShortInfo>::new();
+
+        for playlist in response.body["playlist"].as_array_mut().ok_or(anyhow::anyhow!("playlist not found"))? {
+            let playlist_short: model::PlaylistShortInfo = playlist.take().try_into()?;
+            if playlist_short.subscribed {
+                subscribe.push(playlist_short);
+            } else {
+                create.push(playlist_short);
+            }
+        }
+        Ok(model::UserPlaylists { created: create, subscribed: subscribe })
     }
 
     fn detect_image_extension(bytes: &[u8]) -> anyhow::Result<&'static str> {
@@ -437,17 +449,17 @@ impl NcmApi {
     async fn songs_url(&self, ids: &[u64], br: MusicQuality) -> anyhow::Result<HashMap<u64, anyhow::Result<model::TrackUrl>>> {
         let ids = Self::comma_ids(ids);
 
-        let response = self.client.read().await.song_url_v1(&Query::new()
+        let mut response = self.client.read().await.song_url_v1(&Query::new()
             .param("id", &ids)
             .param("level", br.into())).await?;
 
 
         let data = response.body["data"]
-            .as_array()
+            .as_array_mut()
             .ok_or(anyhow::anyhow!("data not found in get_songs_url response"))?;
 
-        Ok(data.iter().map(|track_value| {
-            let track: anyhow::Result<model::TrackUrl> = track_value.clone().try_into();
+        Ok(data.iter_mut().map(|track_value| {
+            let track: anyhow::Result<model::TrackUrl> = track_value.take().try_into();
             let id = track.as_ref().unwrap().id;
             (id, track)
         }).collect())
@@ -565,6 +577,14 @@ mod test {
         let api = NcmApi::new(COOKIE_STR);
         let res = api.songs_url(&[740558, 26133345, 740611], MusicQuality::Higher).await.unwrap();
         println!("{:#?}", res);
+    }
+
+    #[tokio::test]
+    async fn users_playlist() {
+        let api = NcmApi::new(COOKIE_STR);
+        let account = api.user_account().await.unwrap();
+        let playlists = api.user_playlist(account.id).await.unwrap();
+        println!("{:#?}", playlists);
     }
 
     #[test]

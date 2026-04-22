@@ -1,3 +1,5 @@
+use core::time;
+
 use anyhow::Context;
 use serde::Deserialize;
 use serde_json::Value;
@@ -99,7 +101,7 @@ impl TryFrom<Value> for Account {
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Playlist{
+pub struct PlaylistDetail{
     pub id: u64,
     pub name: String,
     pub cover_img_id: u64,
@@ -115,16 +117,12 @@ pub struct Playlist{
     pub subscribed: bool,
     pub track_count: i32,
     #[serde(skip)]
-    // pub tracks: Vec<TrackDetail>,
     pub track_ids: Vec<u64>
 }
 
-impl TryFrom<Value> for Playlist {
+impl TryFrom<Value> for PlaylistDetail {
     type Error = anyhow::Error;
     fn try_from(v:Value) -> Result<Self, Self::Error> {
-        let mut playlist_details:Self = serde_json::from_value(v.clone())
-            .with_context(|| format!("Failed to parse playlist details from value: {:#?}", v))?;
-
         let track_ids: anyhow::Result<Vec<u64>> = v["trackIds"]
             .as_array()
             .ok_or(anyhow::anyhow!("trackIds not found"))?
@@ -135,9 +133,8 @@ impl TryFrom<Value> for Playlist {
                     .ok_or(anyhow::anyhow!("trackId id not found"))
             })
             .collect();
-        playlist_details.track_ids = track_ids?;
 
-        playlist_details.creator = Account {
+        let creator = Account {
             id: v["creator"]["userId"]
                 .as_u64()
                 .ok_or(anyhow::anyhow!("creator userId not found"))?,
@@ -171,6 +168,12 @@ impl TryFrom<Value> for Playlist {
             followed: v["creator"]["followed"].as_bool().unwrap_or(false),
             vip_type: v["creator"]["vipType"].as_i64().map(|x| x as i32).unwrap_or(0),
         };
+
+        let mut playlist_details:Self = serde_json::from_value(v)
+            .with_context(|| format!("Failed to parse playlist details"))?;
+
+        playlist_details.creator = creator;
+        playlist_details.track_ids = track_ids?;
 
         Ok(playlist_details)
     }
@@ -230,4 +233,29 @@ impl TryFrom<Value> for TrackUrl {
     fn try_from(v:Value) -> Result<Self, Self::Error> {
         Ok(serde_json::from_value(v)?)
     }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlaylistShortInfo {
+    pub id: u64,
+    pub name: String,
+    pub cover_img_url: String,
+    pub cover_img_id: u64,
+    #[serde(rename = "userId")]
+    pub creator_id: u64,
+    pub subscribed: bool,
+}
+
+impl TryFrom<Value> for PlaylistShortInfo {
+    type Error = anyhow::Error;
+    fn try_from(v: Value) -> Result<Self, Self::Error> {
+        Ok(serde_json::from_value(v)?)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct UserPlaylists {
+    pub created: Vec<PlaylistShortInfo>,
+    pub subscribed: Vec<PlaylistShortInfo>,
 }

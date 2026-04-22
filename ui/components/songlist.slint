@@ -19,7 +19,6 @@ component InnerSongList inherits Rectangle{
     property <int> song-font-weight: 500;
 
     in property <int> index;
-
     in-out property <SongDetail> data;
     
     callback clicked();
@@ -32,7 +31,6 @@ component InnerSongList inherits Rectangle{
     
     ta_main := TouchArea {
         clicked => {
-            // main-content-clicked()
             clicked();
         }
         double-clicked => {
@@ -40,7 +38,6 @@ component InnerSongList inherits Rectangle{
         }
     }
 
-    // property <bool> selecetd: root.clicked-item == i;
     in property <length> content-width;
     property <length> stretch-width: content-width  - 200px;
     HorizontalLayout {
@@ -223,8 +220,8 @@ component InnerSongList inherits Rectangle{
                     property <length> heart-size: 16px;
                     property <color> hover-color: #C70039;
                     property <color> common-color: #E63946;
-                    if data.loved :IconFontFilled {
-                        text: "\u{e708}";
+                    IconFontFilled {
+                        text: data.loved ? "\u{e708}" : "\u{e6fb}";
                         color: common-color;
                         width: 16px;
                         font-size: heart-size;
@@ -239,22 +236,6 @@ component InnerSongList inherits Rectangle{
                             }
                         ]
                     } 
-                    if !data.loved :IconFont {
-                        text: "\u{e6fb}";
-                        color: common-color;
-                        width: 16px;
-                        font-size: heart-size;
-                        states [
-                            hover when ta_heart.has-hover: {
-                                color: hover-color;
-                                in {
-                                    animate color{
-                                        duration: 100ms;
-                                    }
-                                }
-                            }
-                        ]
-                    }
                 }
             }
         }
@@ -310,7 +291,6 @@ component InnerSongList inherits Rectangle{
         }
 
         default when Math.mod(index, 2) == 0 : {
-            // background: Palette.neutral-lighter;
             background: Palette.white;
             border-color: Palette.neutral-light;
             border-width: 1px;

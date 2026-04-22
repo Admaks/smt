@@ -6,6 +6,8 @@ export global AppStatus {
     in-out property <int> login-id-2;
 
     in-out property <bool> loading: false;
+
+    in-out property <int> route;
 }
 
 export global AppKeys {
@@ -48,6 +50,6 @@ export global PlayerStatus {
     callback event-loop();
     callback toggle-shuffle();
     callback toggle-repeat();
-    
+
     in-out property <duration> event-loop-gap: 100ms;
 }

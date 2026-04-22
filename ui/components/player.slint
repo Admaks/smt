@@ -103,200 +103,198 @@ export component Player inherits Rectangle {
     HorizontalDivider {
         y: 0px;
     }
-    // MarginBox {
-    //     margin-horizontal: 10px;
-        VerticalLayout {
-            y: 1px;
-            height: 110px;
-            HorizontalLayout {
-                height: 30px;
-                padding-left: 10px;
-                padding-right: 10px;
-                Text {
-                    text: PlayerStatus.played-duration;
-                    vertical-alignment: center;
-                }
 
-                MarginBox {
-                    horizontal-stretch: 1;
-                    margin-horizontal: 15px;
+    VerticalLayout {
+        y: 1px;
+        height: 110px;
+        HorizontalLayout {
+            height: 30px;
+            padding-left: 10px;
+            padding-right: 10px;
+            Text {
+                text: PlayerStatus.played-duration;
+                vertical-alignment: center;
+            }
 
-                    slider := Slider {
-                        minimum: 0;
-                        maximum: PlayerStatus.total-duration-int;
-                        value: 0;
-                        width: 100%;
-                        step: 10 * 1000;
-                        property <int> current-duration;
-                        property <bool> user-inputing;
+            MarginBox {
+                horizontal-stretch: 1;
+                margin-horizontal: 15px;
 
-                        released(position) => {
-                            PlayerStatus.seek-to-duration(position);
-                            user-inputing = false;
-                        }
+                slider := Slider {
+                    minimum: 0;
+                    maximum: PlayerStatus.total-duration-int;
+                    value: 0;
+                    width: 100%;
+                    step: 10 * 1000;
+                    property <int> current-duration;
+                    property <bool> user-inputing;
 
-                        changed(value) => {
-                            user-inputing = true;
-                        }
-                        
-                        
-                        function update-slider() {
-                            if !user-inputing {
-                                self.value = PlayerStatus.played-duration-int;
-                            }
+                    released(position) => {
+                        PlayerStatus.seek-to-duration(position);
+                        user-inputing = false;
+                    }
+
+                    changed(value) => {
+                        user-inputing = true;
+                    }
+                    
+                    
+                    function update-slider() {
+                        if !user-inputing {
+                            self.value = PlayerStatus.played-duration-int;
                         }
                     }
-                }
-                
-                Text {
-                    text: PlayerStatus.total-duraiton;
-                    vertical-alignment: center;
                 }
             }
-        
-            MarginBox {
-                margin-horizontal: 5px;
-                margin-buttom: 5px;
-                // 详情
-                detail := Rectangle {
-                    x: 0;
-                    width: (parent.width - control.width) / 2;
-                    ta_detail := TouchArea {
-                        
-                    }
-                    // 图片
-                    HorizontalLayout {
-                        alignment: start;
-                        spacing: 10px;
-
-                        Rectangle {
-                            height: 100%;
-                            width:  self.height - 10px + 5px;
-                            picture := Rectangle {
-                                x: 5px;
-                                border-width: 1px;
-                                border-color: Palette.neutral-quaternary;
-                                clip: true;
-                                border-radius: 4px;
-                                width: parent.width - 5px;
-                                height: self.width;
-                                Image {
-                                    width: 100%;
-                                    height: 100%;
-                                    source: PlayerStatus.playing-song.image;
-                                }
-                            }
-                        }
-
-
-                        VerticalLayout {
-                            spacing: 0px;
-                            // 歌曲名
-                            Text {
-                                vertical-alignment: center;
-                                text: PlayerStatus.playing-song.name;
-                                color: Palette.neutral-primary;
-                                font-size: 20px;
-                                font-weight: 400;
-                                overflow: elide;
-                                font-family: "Microsoft YaHei";
-                            }
-                            // 歌手
-                            if !PlayerStatus.playing-song.singer.is-empty : Text {
-                                vertical-alignment: top;
-                                text:  "\u{2022} " + PlayerStatus.playing-song.singer;
-                                color: Palette.neutral-secondary;
-                                overflow: elide;
-                                font-size: 14px;    
-                            }
-                        }
-                    }
-                    horizontal-stretch: 1;
-                    border-radius: 6px;
-                    states [
-                        hover when ta_detail.has-hover :{
-                            background: Palette.neutral-light;
-                        }
-                    ]
-                }
-
-                control := Rectangle {
-                    x: detail.width;
-                    width: 240px;
-
-                    Rectangle {
-                        height: 56px;
-                        HorizontalLayout {
-                        spacing: 5px;
-                        
-                        Rectangle {
-                            horizontal-stretch: 1;
-                            CommonButton {
-                                iconfont: {
-                                    if PlayerStatus.loop-type == 0 {
-                                        "\u{f175}" // no repeat
-                                    } else if PlayerStatus.loop-type == 1 {
-                                        "\u{ef34}" // 1 repeat
-                                    } else  { 
-                                        "\u{f172}"// repeat all
-                                    }
-                                }
-                                clicked => {
-                                    PlayerStatus.toggle-repeat();
-                                }
-                            }
-                            // no repeat 
-                            // 1 repeat ef34
-                        }
-
-                        Rectangle {
-                            horizontal-stretch: 1;
-                            CommonButton {
-                                iconfont: "\u{e9d2}";
-                                clicked => {
-                                    PlayerStatus.prev();
-                                }
-                            }
-                        }
-
-                        Rectangle {
-                            horizontal-stretch: 2;
-                            PauseButton {
-                                common-background: root.background;
-                            }
-                        }
-                        
-                        Rectangle {
-                            horizontal-stretch: 1;
-                            CommonButton {
-                                iconfont: "\u{e876}";
-                                clicked => {
-                                    PlayerStatus.next();
-                                }
-                            }
-                        }
-
-                        Rectangle {
-                            horizontal-stretch: 1;
-                            CommonButton {
-                                iconfont: PlayerStatus.shuffled ? "\u{ef39}" : "\u{ef3f}";
-                                clicked => {
-                                    PlayerStatus.toggle-shuffle();
-                                }
-                            }
-                            // no shuffle ef3f
-                        }
-                    }
-                    }
-
-                }
-
-                more := Rectangle {
-                    width: (parent.width - control.width) / 2;
-                    x: parent.width - self.width;
-                    horizontal-stretch: 1;
-                }
+            
+            Text {
+                text: PlayerStatus.total-duraiton;
+                vertical-alignment: center;
             }
         }
-    // }
+    
+        MarginBox {
+            margin-horizontal: 5px;
+            margin-buttom: 5px;
+            // 详情
+            detail := Rectangle {
+                x: 0;
+                width: (parent.width - control.width) / 2;
+                ta_detail := TouchArea {
+                    
+                }
+                // 图片
+                HorizontalLayout {
+                    alignment: start;
+                    spacing: 10px;
+
+                    Rectangle {
+                        height: 100%;
+                        width:  self.height - 10px + 5px;
+                        picture := Rectangle {
+                            x: 5px;
+                            border-width: 1px;
+                            border-color: Palette.neutral-quaternary;
+                            clip: true;
+                            border-radius: 4px;
+                            width: parent.width - 5px;
+                            height: self.width;
+                            Image {
+                                width: 100%;
+                                height: 100%;
+                                source: PlayerStatus.playing-song.image;
+                            }
+                        }
+                    }
+
+
+                    VerticalLayout {
+                        spacing: 0px;
+                        // 歌曲名
+                        Text {
+                            vertical-alignment: center;
+                            text: PlayerStatus.playing-song.name;
+                            color: Palette.neutral-primary;
+                            font-size: 20px;
+                            font-weight: 400;
+                            overflow: elide;
+                            font-family: "Microsoft YaHei";
+                        }
+                        // 歌手
+                        if !PlayerStatus.playing-song.singer.is-empty : Text {
+                            vertical-alignment: top;
+                            text:  "\u{2022} " + PlayerStatus.playing-song.singer;
+                            color: Palette.neutral-secondary;
+                            overflow: elide;
+                            font-size: 14px;    
+                        }
+                    }
+                }
+                horizontal-stretch: 1;
+                border-radius: 6px;
+                states [
+                    hover when ta_detail.has-hover :{
+                        background: Palette.neutral-light;
+                    }
+                ]
+            }
+
+            control := Rectangle {
+                x: detail.width;
+                width: 240px;
+
+                Rectangle {
+                    height: 56px;
+                    HorizontalLayout {
+                    spacing: 5px;
+                    
+                    Rectangle {
+                        horizontal-stretch: 1;
+                        CommonButton {
+                            iconfont: {
+                                if PlayerStatus.loop-type == 0 {
+                                    "\u{f175}" // no repeat
+                                } else if PlayerStatus.loop-type == 1 {
+                                    "\u{ef34}" // 1 repeat
+                                } else  { 
+                                    "\u{f172}"// repeat all
+                                }
+                            }
+                            clicked => {
+                                PlayerStatus.toggle-repeat();
+                            }
+                        }
+                        // no repeat 
+                        // 1 repeat ef34
+                    }
+
+                    Rectangle {
+                        horizontal-stretch: 1;
+                        CommonButton {
+                            iconfont: "\u{e9d2}";
+                            clicked => {
+                                PlayerStatus.prev();
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        horizontal-stretch: 2;
+                        PauseButton {
+                            common-background: root.background;
+                        }
+                    }
+                    
+                    Rectangle {
+                        horizontal-stretch: 1;
+                        CommonButton {
+                            iconfont: "\u{e876}";
+                            clicked => {
+                                PlayerStatus.next();
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        horizontal-stretch: 1;
+                        CommonButton {
+                            iconfont: PlayerStatus.shuffled ? "\u{ef39}" : "\u{ef3f}";
+                            clicked => {
+                                PlayerStatus.toggle-shuffle();
+                            }
+                        }
+                        // no shuffle ef3f
+                    }
+                }
+                }
+
+            }
+
+            more := Rectangle {
+                width: (parent.width - control.width) / 2;
+                x: parent.width - self.width;
+                horizontal-stretch: 1;
+            }
+        }
+    }
 }

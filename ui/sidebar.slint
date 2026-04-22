@@ -3,7 +3,21 @@ import { Palette } from "palette.slint";
 import { IconFont } from "./assets/icon/iconfont.slint";
 import { HorizontalDivider, VerticallDivider } from "./components/divider.slint";
 
-struct AnimationFrame-bar {
+export struct SideBarItemMessage {
+    cover: image,
+    name: string,
+    route: string
+}
+
+export global SideBarProperty {
+    callback update();
+
+    in-out property <[SideBarItemMessage]> created-playlist;
+    in-out property <[SideBarItemMessage]> subscribed-playlist;
+}
+
+
+struct BarAnimationFrame {
     y: length,
     height: length,
     duration: duration,
@@ -57,7 +71,7 @@ component SideBarItem inherits Rectangle {
         property <int> animation-phase <=> parent.animation-phase;
 
         // 定义关键帧
-        property <[AnimationFrame-bar]> animation-frame : [
+        property <[BarAnimationFrame]> animation-frame : [
             { // 完结后属性
                 y: initial_y,
                 height: initial_height,
@@ -171,11 +185,6 @@ export component SideBar inherits Rectangle {
         }, {
             text: "喜欢的音乐",
             iconfont: "\u{e6fb}"
-        }, {
-            text: 2
-        },
-        {
-            text: 3
         }
     ];
 
@@ -186,18 +195,26 @@ export component SideBar inherits Rectangle {
     out property <length> compact-width: 35px + main_item.padding * 2;
 
     width: toggled ? compact-width : initia-with;
-
+    clip: true;
     out property <length> current-width : toggled ? compact-width : initia-with;
     callback current-width-changed();
 
     init => {
-        current-width-changed()
+        current-width-changed();
+        SideBarProperty.update();
     }
 
     changed current-width => {
         current-width-changed()
     }
 
+    Timer {
+        interval: 4 * 60s;
+        running: true;
+        triggered => {
+            SideBarProperty.update();
+        }
+    }
 
     property <int> move-direction;
     main_item := VerticalBox {
@@ -245,6 +262,14 @@ export component SideBar inherits Rectangle {
                     toggled: root.toggled;
                 }
                 HorizontalDivider {}
+                for item[i] in SideBarProperty.created-playlist : SideBarItem{
+                    item-id: i + 20;
+                    text: item.name;
+
+                    active-item-id <=> root.active-item-id;
+                    move-direction <=> root.move-direction;
+                    toggled: root.toggled;
+                }
             }
         }
  
@@ -261,6 +286,7 @@ export component SideBar inherits Rectangle {
     animate width {
         duration: 100ms;
         easing: ease-out;
+        delay: 10ms;
     }
 
 }

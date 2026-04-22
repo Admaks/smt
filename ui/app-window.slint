@@ -1,5 +1,5 @@
 import { Button, VerticalBox, HorizontalBox, LineEdit } from "std-widgets.slint";
-import { SideBar } from "sidebar.slint";
+import { SideBar, SideBarProperty, SideBarItemMessage } from "sidebar.slint";
 import { Palette } from "palette.slint";
 import { Login, LoginProperty } from "./pages/login.slint";
 import { AppStatus, AppKeys, PlayerStatus } from "app-status.slint";
@@ -7,7 +7,8 @@ import { PlaylistProperty, Playlist } from "./pages/playlist.slint";
 import { SongDetail, SongListProperty } from "./components/songlist.slint";
 import { Player } from "components/player.slint";
 import { VerticallDivider } from "components/divider.slint";
-export { LoginProperty, AppStatus, SongDetail, PlaylistProperty, SongListProperty, PlayerStatus }
+import { Route } from "route.slint";
+export { LoginProperty, AppStatus, SongDetail, PlaylistProperty, SongListProperty, PlayerStatus, SideBarProperty, SideBarItemMessage }
 
 
 export component AppWindow inherits Window {
@@ -20,7 +21,8 @@ export component AppWindow inherits Window {
 
     property <color> main-content-color: Palette.white.with-alpha(0.6);
     property <bool> sidebar-toggled: false;
-    property <length> sidebar-current-width;
+    property <length> sidebar-current-width : 0;
+
     if AppStatus.logined: Rectangle {
         height: 100%;
         width: 100%;
@@ -36,6 +38,8 @@ export component AppWindow inherits Window {
             background: Palette.neutral-lighter.with-alpha(0.3);
         }
 
+        // property <length> sidebar-current-width : sidebar.current-width;
+
         VerticallDivider {
             height: parent.height - player.height;
             y:0;
@@ -43,11 +47,9 @@ export component AppWindow inherits Window {
         }
 
         // 优化动画，不为宽度增加动画以提升性能，可能会出现页面闪烁
-        main_content :=Rectangle {
+        main_content := Rectangle {
             background: root.main-content-color;
-
             height: parent.height - player.height;
-
 
             width: root.width - sidebar-current-width;
             x: sidebar-current-width;
@@ -63,8 +65,8 @@ export component AppWindow inherits Window {
 
                 return 60px;
             }
-                // horizontal-stretch: 10;
-            Playlist {
+
+            Route {
                 margin: calculate-margin();
             }
             
@@ -82,8 +84,7 @@ export component AppWindow inherits Window {
         }
     }
     
-    if !AppStatus.logined: Login{
-    }
+    if !AppStatus.logined: Login{ }
 
 
 

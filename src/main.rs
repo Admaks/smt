@@ -5,6 +5,10 @@ pub mod playlist;
 pub mod songlist;
 pub mod player;
 pub mod types;
+pub mod route;
+pub mod sidebar;
+pub mod app_runtime;
+
 
 use i_slint_backend_winit::{WinitWindowAccessor};
 use slint::{ComponentHandle, VecModel, Weak};
@@ -14,8 +18,10 @@ use std::{
 };
 use winit::platform::windows::WindowExtWindows;
 
-type AppLibRc = Rc<AppLib>;
-type AppWeak = Weak<AppWindow>;
+use crate::route::Route;
+pub type AppLibRc = Rc<AppLib>;
+pub type AppWeak = Weak<AppWindow>;
+
 
 slint::include_modules!();
 
@@ -40,6 +46,8 @@ fn bind_event(app_weak: Weak<AppWindow>, app_lib: AppLibRc) {
     playlist::bind_playlist_page(app_weak.clone(), app_lib.clone());
     songlist::bind_songlist(app_weak.clone(), app_lib.clone());
     player::bind_player(app_weak.clone(), app_lib.clone());
+    sidebar::bind_sidebar(app_weak.clone(), app_lib.clone());
+    Route::from_path("playlist/2115392436").unwrap().set_route(&app_weak, app_lib);
 }
 
 

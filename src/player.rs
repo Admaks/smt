@@ -178,7 +178,7 @@ fn reload_playing_song(app_weak: AppWeak, app_lib: AppLibRc, id: u64) {
             let app_lib = app_lib.clone();
             let id = id.clone();
             async move {
-                let mut track_detail = app_lib.get_tracks(&[id]).await;
+                let mut track_detail = app_lib.get_tracks_cached(&[id]).await;
                 let default_image = slint::Image::load_from_path(
                         &app_lib.config.assets_dir.join("music.svg"))
                     .unwrap_or_default();

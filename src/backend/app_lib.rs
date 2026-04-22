@@ -14,7 +14,8 @@ pub struct AppLib {
     pub login_user: RefCell<Option<crate::model::Account>>,
     pub loved_ids: RefCell<HashSet<u64>>,
     pub player_core: RefCell<PlayerCore>,
-    track_detail_cache: moka::sync::Cache<u64, crate::model::TrackDetail>
+    track_detail_cache: moka::sync::Cache<u64, crate::model::TrackDetail>,
+    playlist_cache: moka::sync::Cache<u64, crate::model::PlaylistDetail>
 }
 
 
@@ -23,8 +24,10 @@ impl AppLib {
         let config = Config::default();
 
         let track_detail_cache =
-            moka::sync::Cache::new(1024 * 1024 * 5);
-
+            moka::sync::Cache::new(Config::TRACK_DETAIL_MEMERY_CACHE_CAPACITY);
+        let playlist_cache =
+            moka::sync::Cache::new(Config::PLAYLIST_MEMERY_CACHE_CAPACITY);
+        
         // println!("Loading cookie from {:?}", config.cookie_store_path);
         let cookie_str = std::fs::read_to_string(&config.cookie_store_path)
             .unwrap_or_default();
@@ -41,7 +44,8 @@ impl AppLib {
                 config,
                 login_user: RefCell::new(None),
                 loved_ids: RefCell::new(HashSet::new()),
-                track_detail_cache
+                track_detail_cache,
+                playlist_cache
             };
         };
 
@@ -55,7 +59,8 @@ impl AppLib {
             config,
             login_user: RefCell::new(Some(user)),
             loved_ids: RefCell::new(loved_ids),
-            track_detail_cache
+            track_detail_cache,
+            playlist_cache
         }
     }
 
@@ -129,7 +134,7 @@ impl AppLib {
         self.client.get_image(&filename, url, cache_dir, width, width).compat().await
     }
 
-    pub async fn get_tracks(&self, ids : &[u64]) -> Vec<crate::model::TrackDetail>{
+    pub async fn get_tracks_cached(&self, ids : &[u64]) -> Vec<crate::model::TrackDetail>{
         let uncached= ids.iter().filter(|id| {
             !self.track_detail_cache.contains_key(*id)
         }).copied().collect::<Vec<_>>();
@@ -155,5 +160,16 @@ impl AppLib {
                 }
             }
         }).collect()
+    }
+
+    pub async fn get_playlist_cached(&self, id: u64) -> Option<crate::model::PlaylistDetail> {
+        if let Some(playlist) = self.playlist_cache.get(&id) {
+            return Some(playlist);
+        }
+
+        let playlist = self.client.playlist_detail(id, None).compat().await.ok()?;
+
+        self.playlist_cache.insert(id, playlist.clone());
+        Some(playlist)
     }
 }

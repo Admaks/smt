@@ -41,7 +41,7 @@ pub fn to_songlist_model(songs: Vec<smt::model::TrackDetail>, default_image_path
                 Some((row, image))
             }
         }))
-        .buffer_unordered(smt::Config::SONGLIST_COVER_FETCH_CONCURRENCY);
+        .buffer_unordered(smt::Config::SONGLIST_COVER_FETCH_CONCURRENCY); 
 
         let mut pending = Vec::with_capacity(smt::Config::SONGLIST_UI_UPDATE_BATCH);
         futures::pin_mut!(fetches);
