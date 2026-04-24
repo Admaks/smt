@@ -3,19 +3,30 @@ import { Palette } from "palette.slint";
 import { IconFont } from "./assets/icon/iconfont.slint";
 import { HorizontalDivider, VerticallDivider } from "./components/divider.slint";
 import { RouteProperty } from "./route.slint";
+import { MarginBox } from "components/margin-box.slint";
 
 export struct SideBarItemMessage {
-    cover: image,
     name: string,
     route: string,
-    type: int
+    grade: int,
+    father: int,
+    icon: image,
+    iconfont: string,
+    display: bool,
+    expand: bool,
+    type: int,
+    index: int
 }
 
 export global SideBarProperty {
     callback update();
+    callback expand(int);
+    callback toggle(bool);
+    
+    in-out property <[SideBarItemMessage]> sidebar-items;
+    in-out property <[SideBarItemMessage]> sidebar-items-show;
 
-    in-out property <[SideBarItemMessage]> created-playlist;
-    in-out property <[SideBarItemMessage]> subscribed-playlist;
+    in-out property <length> scroll-length;
 }
 
 
@@ -27,8 +38,11 @@ struct BarAnimationFrame {
 }
 
 component SideBarItem inherits Rectangle {
+    in property <int> grade; 
+    in property <bool> is-container;
     // 页面路径
     in property <string> page-path;
+
     // 选中
     in-out property <int> active-item-id;
     in property <int> item-id;
@@ -50,7 +64,7 @@ component SideBarItem inherits Rectangle {
     changed active => {
         if (active) {
             blue_bar.animate-in = true;
-        } else {
+        } else {       
             blue_bar.animate-in = false;
         }
         blue_bar.animation-phase = 1;
@@ -61,138 +75,170 @@ component SideBarItem inherits Rectangle {
     border-radius: 4px;
     clip: true;
 
-    
-    // 小蓝条
-    blue_bar :=  Rectangle{
-        // 进入动画还是退出动画
-        in-out property <bool> animate-in: false;
-        in-out property <int> move-direction : parent.move-direction;
-        
-        // 计算初值
-        private property <length> initial_y : (parent.height - self.initial_height) / 2;
-        private property <length> initial_height: 18px;
-        
-        // 设置动画初始帧
-        property <int> animation-phase <=> parent.animation-phase;
-
-        // 定义关键帧
-        property <[BarAnimationFrame]> animation-frame : [
-            { // 完结后属性
-                y: initial_y,
-                height: initial_height,
-                duration: 0ms,
-                visible: active
-            },
-            { // 增大
-                y: move-direction < 0 ? initial_y : initial_y - 10px,
-                height: initial_height + 10px,
-                duration: 200ms,
-                visible: !animate-in
-            },
-            { // 跳出
-                y: move-direction < 0 ? initial_y + 2 * initial_height : initial_y - 2 * initial_height,
-                height: initial_height + 10px,
-                duration: 25ms,
-                visible: !animate-in
-            },
-            { // 跳入
-                y: move-direction < 0 ? initial_y - 10px : initial_y,
-                height: initial_height + 10px,
-                duration: 25ms,
-                visible: animate-in
-            },
-            { // 缩小
-                y: initial_y,
-                height: initial_height,
-                duration: 200ms,
-                visible: animate-in
-            }
-        ];
-
-        // 动画时钟
-        animation-tick := Timer{
-            interval: animation-frame[animation-phase].duration;
-            running: animation-phase != 0;
-            triggered => {
-                animation-phase = Math.mod(animation-phase + 1, animation-frame.length);
-            }
-        }
-
-        // 动画声明
-        animate y,height {
-            duration: animation-frame[animation-phase].duration;
-        }
-
-        height: animation-frame[animation-phase].height;
-        y: animation-frame[animation-phase].y;
-        visible: animation-frame[animation-phase].visible;
-
-        width: 3px;
-        border-radius: 2px;
-        x: 0px;
-        background: Palette.theme-primary;
-    }
-
-    // 主要内容
-    content :=HorizontalLayout {
-        width: 100%;
-        height: 100%;
-        spacing: 10px;
-        x: 0px;
-
-        if !root.iconfont.is-empty : IconFont {
-            text: root.iconfont;
-            font-size: self.height - 18px;
-            vertical-alignment: center;
-            horizontal-alignment: center;
-            height: 100%;
-            width: 35px;
-        }
-
-        if root.iconfont.is-empty : Rectangle {
-            width: 35px;
-            Rectangle {
-                height: 24px;
-                width: 24px;
-                clip: true;
-                border-radius: 4px;
-                Image {
-                    source: icon;
-                    height: 100%;
-                    width: 100%;
-                }
-            }
-        }
-
-        if !toggled: Text {
-            text: text;
-            vertical-alignment: center;
-            font-size: 14px;
-        }
-    }
-    
-    // 状态
-    states [
-        clicked when active: {
-            background: Palette.neutral-light;
-        }
-
-        hover when ta.has-hover && !active: {
-            background: Palette.neutral-light;
-        }
-    ]
-
     ta := TouchArea {
         width: 100%;
         height: 100%;
 
+        in-out property <bool> left-down: false;
         clicked => {
+            if is-container && !toggled {
+                SideBarProperty.expand(item-id);
+            }
+
             if RouteProperty.navigate(root.page-path) {
                 move-direction = active-item-id - item-id;
                 active-item-id = item-id;
             }
         }
+
+        pointer-event(event) => {
+            if event.button == PointerEventButton.left {
+                if event.kind == PointerEventKind.down {
+                    left-down = true;
+                } else {
+                    left-down = false;
+                }
+            }
+        }
     }
+
+    Rectangle {
+        x: grade * 36px;
+        width: parent.width - self.x;
+        // 小蓝条
+        blue_bar :=  Rectangle{
+            // 进入动画还是退出动画
+            in-out property <bool> animate-in: false;
+            in-out property <int> move-direction : root.move-direction;
+            
+            // 计算初值
+            private property <length> initial_y : (parent.height - self.initial_height) / 2;
+            private property <length> initial_height: 18px;
+            
+            // 设置动画初始帧
+            property <int> animation-phase <=> root.animation-phase;
+
+            // 定义关键帧
+            property <[BarAnimationFrame]> animation-frame : [
+                { // 完结后属性
+                    y: initial_y,
+                    height: initial_height,
+                    duration: 0ms,
+                    visible: active
+                },
+                { // 增大
+                    y: move-direction < 0 ? initial_y : initial_y - 10px,
+                    height: initial_height + 10px,
+                    duration: 200ms,
+                    visible: !animate-in
+                },
+                { // 跳出
+                    y: move-direction < 0 ? initial_y + 2 * initial_height : initial_y - 2 * initial_height,
+                    height: initial_height + 10px,
+                    duration: 25ms,
+                    visible: !animate-in
+                },
+                { // 跳入
+                    y: move-direction < 0 ? initial_y - 10px : initial_y,
+                    height: initial_height + 10px,
+                    duration: 25ms,
+                    visible: animate-in
+                },
+                { // 缩小
+                    y: initial_y,
+                    height: initial_height,
+                    duration: 200ms,
+                    visible: animate-in
+                }
+            ];
+
+            // 动画时钟
+            animation-tick := Timer{
+                interval: animation-frame[animation-phase].duration;
+                running: animation-phase != 0;
+                triggered => {
+                    animation-phase = Math.mod(animation-phase + 1, animation-frame.length);
+                }
+            }
+
+            // 动画声明
+            animate y,height {
+                duration: animation-frame[animation-phase].duration;
+            }
+
+            height: animation-frame[animation-phase].height;
+            y: animation-frame[animation-phase].y;
+            visible: animation-frame[animation-phase].visible;
+
+            width: 3px;
+            border-radius: 2px;
+            x: 0px;
+            background: Palette.theme-primary;
+        }
+
+
+        // 主要内容
+        content :=HorizontalLayout {
+            width: 100%;
+            height: 100%;
+            spacing: 10px;
+            x: 6px;
+
+            if !root.iconfont.is-empty : IconFont {
+                text: root.iconfont;
+                font-size: 20px;
+                vertical-alignment: center;
+                horizontal-alignment: center;
+                height: 100%;
+                width: 24px;
+            }
+
+            if root.iconfont.is-empty : Rectangle {
+                width: 24px;
+                Rectangle {
+                    height: 22px;
+                    width: 22px;
+                    clip: true;
+                    border-radius: 4px;
+                    Image {
+                        source: icon;
+                        height: 100%;
+                        width: 100%;
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                alignment: start;
+                if !toggled: Text {
+                    text: text;
+                    vertical-alignment: center;
+                    font-size: 14px;
+                }
+                horizontal-stretch: 1;
+            }
+            
+            if is-container : Rectangle {
+                // down f0320
+                // up f0323
+            }
+        }
+    }
+    
+    
+    // 状态
+    states [
+        left-down when ta.left-down : {
+            background: Palette.neutral-light.with-alpha(0.85);
+        }
+        clicked when active: {
+            background: Palette.neutral-light.with-alpha(0.70);
+        }
+
+        hover when ta.has-hover && !active: {
+            background: Palette.neutral-light.with-alpha(0.70);
+        }
+    ]
 }
 
 export struct StaticItem {
@@ -201,21 +247,11 @@ export struct StaticItem {
 }
 
 export component SideBar inherits Rectangle {
-    in-out property <[StaticItem]> items : [
-        {
-            text: "主页",
-            iconfont: "\u{e710}"
-        }, {
-            text: "喜欢的音乐",
-            iconfont: "\u{e6fb}"
-        }
-    ];
-
     in-out property <int> active-item-id : 0;
-    in-out property <bool> toggled: false;
+    in-out property <bool> toggled : false;
     
     out property <length> initia-with: 300px;
-    out property <length> compact-width: 45px;
+    out property <length> compact-width: 44px;
 
     width: toggled ? compact-width : initia-with;
     clip: true;
@@ -240,26 +276,49 @@ export component SideBar inherits Rectangle {
     }
 
     property <int> move-direction;
-    main_item := VerticalLayout {
-        width: 100%;
-        spacing: 4px;
-        
+
+    // enum SideBarItemType {
+    //     Common = 0,
+    //     Container = 1,
+    //     Divider = 2,
+    // }
+
+    property <int> common: 0;
+    property <int> container: 1;
+    property <int> divider: 2;
+
+    VerticalLayout {
+        padding-left: 4px;
+        // padding-right: 4px;
         toggle-button:= Rectangle {
             height: 36px;
-            width: 45px;
+            width: 36px;
             Rectangle {
-                width: 35px;
+                // width: 24px;
+                width: 100%;
                 IconFont {
                     overflow: TextOverflow.clip;
                     text: "\u{f076a}";
                     horizontal-alignment: center;
                     vertical-alignment: center;
                     height: 100%;
-                    width: 35px;
+                    width: 24px;
                     font-size: 18px;
-                    ta :=TouchArea {
+                    ta := TouchArea {
+                        in-out property <bool> left-down: false;
                         clicked => {
                             toggled = !toggled;
+                            SideBarProperty.toggle(toggled);
+                        }
+
+                        pointer-event(event) => {
+                            if event.button == PointerEventButton.left {
+                                if event.kind == PointerEventKind.down {
+                                    left-down = true;
+                                } else {
+                                    left-down = false;
+                                }
+                            }
                         }
                     }
                 }
@@ -267,72 +326,68 @@ export component SideBar inherits Rectangle {
                 border-radius: 4px;
 
                 states [
+                    left-down when ta.left-down : {
+                        background: Palette.neutral-light.with-alpha(0.85);
+                    }
                     hover when ta.has-hover: {
-                        background: Palette.neutral-light;
+                        background: Palette.neutral-light.with-alpha(0.70);
                     }
                 ]
             }
         }
 
-        ScrollView {
+        ListView {
+            horizontal-stretch: 1;
             width: 100%;
-            vertical-stretch: 1;
-            VerticalLayout {
-                padding-left: 5px;
-                padding-right: 5px;
+            for item[i] in SideBarProperty.sidebar-items-show : Rectangle {
+                x: 0;
+                width: parent.width - 4px;
+                height: item.type == divider ? 1px : 40px;
+                clip: item.display;
+                if item.type == divider : HorizontalDivider {}
 
-                spacing: 4px;
-                alignment: LayoutAlignment.stretch;
-                for item[i] in items : SideBarItem {
-                    item-id: i;
-                    text: item.text;
-                    iconfont: item.iconfont;
-                    active-item-id <=> root.active-item-id;
-                    move-direction <=> root.move-direction;
-                    toggled: root.toggled;
-                }
-
-                HorizontalDivider {}
-
-                if !toggled:Rectangle {
-                    ListView {
-                        for item[i] in SideBarProperty.created-playlist : SideBarItem{
-                            item-id: i + 20;
-                            text: item.name;
-                            icon: item.cover;
-                            page-path: item.route;
-                            active-item-id <=> root.active-item-id;
-                            move-direction <=> root.move-direction;
-                            toggled: root.toggled;
-                        }
+                HorizontalLayout {
+                    padding-top: 2px;
+                    padding-bottom: 2px;
+                    if item.type == common : SideBarItem {
+                        item-id: item.index;
+                        text: item.name;
+                        iconfont: item.iconfont;
+                        icon: item.icon;
+                        page-path: item.route;
+                        grade: item.grade;
+                        active-item-id <=> root.active-item-id;
+                        move-direction <=> root.move-direction;
+                        toggled: root.toggled;
                     }
-                }
 
-                HorizontalDivider {}
-
-                if !toggled:Rectangle {
-                    ListView {
-                        for item[i] in SideBarProperty.created-playlist : SideBarItem{
-                            item-id: i + 20;
-                            text: item.name;
-                            icon: item.cover;
-                            page-path: item.route;
-                            active-item-id <=> root.active-item-id;
-                            move-direction <=> root.move-direction;
-                            toggled: root.toggled;
-                        }
+                    if item.type == container : SideBarItem {
+                        item-id: item.index;
+                        text: item.name;
+                        iconfont: item.iconfont;
+                        icon: item.icon;
+                        grade: item.grade;
+                        active-item-id <=> root.active-item-id;
+                        move-direction <=> root.move-direction;
+                        is-container: true;
+                        toggled: root.toggled;
                     }
                 }
             }
+
         }
- 
-        setting-item := SideBarItem {
-            item-id: 100000000;
-            text: "设置";
-            active-item-id <=> root.active-item-id;
-            move-direction <=> root.move-direction;
-            toggled: root.toggled;
-            iconfont: "\u{ea94}";
+
+        VerticalLayout {
+            padding-right: 4px;
+            HorizontalDivider {}
+            setting-item := SideBarItem {
+                item-id: 100000000;
+                text: "设置";
+                iconfont: "\u{ea94}";
+                active-item-id <=> root.active-item-id;
+                move-direction <=> root.move-direction;
+                toggled: root.toggled;
+            }
         }
     }
 

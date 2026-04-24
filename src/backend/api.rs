@@ -208,7 +208,6 @@ impl NcmApi {
             params = params.param("s", &s.to_string())
         }
 
-
         let mut response = self.client.read().await.playlist_detail(&params).await?;
         let res: model::PlaylistDetail = response.body["playlist"].take().try_into()?;
 
@@ -240,18 +239,7 @@ impl NcmApi {
 
     pub async fn user_playlist(&self, uid:u64) -> anyhow::Result<model::UserPlaylists> {
         let mut response = self.client.read().await.user_playlist(&Query::new().param("uid", &uid.to_string())).await?;
-        let mut create = Vec::<model::PlaylistShortInfo>::new();
-        let mut subscribe = Vec::<model::PlaylistShortInfo>::new();
-
-        for playlist in response.body["playlist"].as_array_mut().ok_or(anyhow::anyhow!("playlist not found"))? {
-            let playlist_short: model::PlaylistShortInfo = playlist.take().try_into()?;
-            if playlist_short.subscribed {
-                subscribe.push(playlist_short);
-            } else {
-                create.push(playlist_short);
-            }
-        }
-        Ok(model::UserPlaylists { created: create, subscribed: subscribe })
+        Ok(response.body["playlist"].take().try_into()?)
     }
 
     fn detect_image_extension(bytes: &[u8]) -> anyhow::Result<&'static str> {

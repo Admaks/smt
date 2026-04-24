@@ -45,3 +45,9 @@ strip = true
 panic = "abort"
 incremental = true
 debug = false
+
+[profile.dev]
+opt-level = 2     # 启用更多优化
+debug = 2         # 保留完整调试信息
+incremental = true  # 保持增量编译
+

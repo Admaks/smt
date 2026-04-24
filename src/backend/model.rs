@@ -254,6 +254,34 @@ impl TryFrom<Value> for PlaylistShortInfo {
 
 #[derive(Debug, Clone)]
 pub struct UserPlaylists {
+    pub lovelist: PlaylistShortInfo,
     pub created: Vec<PlaylistShortInfo>,
     pub subscribed: Vec<PlaylistShortInfo>,
 }
+
+impl TryFrom<Value> for UserPlaylists {
+    type Error = anyhow::Error;
+    fn try_from(mut v: Value) -> Result<Self, Self::Error> {
+        let mut create = Vec::<PlaylistShortInfo>::new();
+        let mut subscribe = Vec::<PlaylistShortInfo>::new();
+
+        let mut lovelist = None;
+        for playlist in v.as_array_mut().ok_or(anyhow::anyhow!("playlist not found"))? {
+            let playlist_short: PlaylistShortInfo = playlist.take().try_into()?;
+            if lovelist.is_none() {
+                lovelist = Some(playlist_short);
+            } else if playlist_short.subscribed {
+                subscribe.push(playlist_short);
+            } else {
+                create.push(playlist_short);
+            }
+        }
+
+        Ok(UserPlaylists {
+            lovelist: lovelist.ok_or(anyhow::anyhow!("lovelist not found"))?,
+            created: create,
+            subscribed: subscribe,
+        })
+    }
+}
+

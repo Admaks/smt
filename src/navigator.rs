@@ -8,6 +8,7 @@ impl App {
         let app = self.clone();
         let app_ui = self.app_ui.unwrap();
 
+
         app_ui.global::<RouteProperty>().on_navigate(move |path | {
             println!("Navigate to path: {}", path);
             if let Some(route) = Route::from_path(&path) {
