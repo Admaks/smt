@@ -1,51 +1,86 @@
-import { ListView, HorizontalBox, Button, ScrollView } from "std-widgets.slint";
+import { ListView, HorizontalBox, Button, ScrollView, CheckBox } from "std-widgets.slint";
 import { AppKeys } from "../app-status.slint";
 
 import { Palette } from "../palette.slint";
 import { IconFont, IconFontFilled } from "../assets/icon/iconfont.slint";
 import { MarginBox } from "margin-box.slint";
-
+import { PlayerProperty } from "../components/player.slint";
 import { SongDetail } from "../types/types.slint";
 
 export { SongDetail }
 
 export global SongListProperty {
-    callback clicked(int, int, [SongDetail]);
-    callback play(int, int, [SongDetail]);
+    // 选择相关回调：由 Rust 侧负责更新模型并返回当前是否存在选中项。
+    callback select(int, int, [SongDetail]) -> int;
+    callback clear-select([SongDetail]);
+
+    // 播放回调：携带页面基准信息，供后端决定播放策略。
+    callback play(base-id-1 : int, base-id-2 : int, base-type : int, [SongDetail]);
+    callback insert([SongDetail]);
 }
 
+
 component InnerSongList inherits Rectangle{
+    // 当前行索引与数据。
+    in property <int> index;
+    in property <bool> selecting;
+
+    in property <SongDetail> data;
+
+    callback clicked(KeyboardModifiers);
+    callback double-clicked();
+    callback select();
+
+    // 当前行是否为正在播放歌曲，用于高亮与蓝条动画。
+    property <bool> playing: PlayerProperty.playing-song.id-1 == data.id-1 && PlayerProperty.playing-song.id-2 == data.id-2;
+    property <color> primary-font-color: playing ? Palette.theme-primary : Palette.neutral-primary;
+    property <color> alt-font-color: playing ? Palette.theme-primary : Palette.neutral-primary-alt;
+
     property <length> song-font-size: 12px;
     property <int> song-font-weight: 500;
+    property <bool> hover: false;
 
-    in property <int> index;
-    in-out property <SongDetail> data;
-    
-    callback clicked();
-    callback double-clicked();
-
-    height: 40px;
+    height: 44px;
     border-radius: 8px;
     clip: true;
     
     
     ta_main := TouchArea {
-        clicked => {
-            clicked();
-        }
+        property <bool> left-down: false;
+        property <KeyboardModifiers> modifiers;
         double-clicked => {
             double-clicked();
+        }
+
+        clicked => {
+            clicked(modifiers);
+        }
+
+        pointer-event(event) => {
+            // 记录鼠标按键修饰符，点击时用于单选/加选/区间选。
+            if event.button == PointerEventButton.left {
+                if event.kind == PointerEventKind.down {
+                    left-down = true;
+                } else {
+                    left-down = false;
+                }
+
+                if event.kind == PointerEventKind.down || event.kind == PointerEventKind.up {
+                    modifiers = event.modifiers;
+                }
+            }
         }
     }
 
     in property <length> content-width;
+    // 固定列宽之外的剩余空间，用于歌曲/歌手/专辑列自适应分配。
     property <length> stretch-width: content-width  - 200px;
     HorizontalLayout {
         Rectangle {
             horizontal-stretch: 0;
             width: 1px;
         }
-        // bluebar 
+        // 播放指示条：播放中时展开高度，否则收起。
         VerticalLayout {
             alignment: center;
             width: 3px;
@@ -54,7 +89,7 @@ component InnerSongList inherits Rectangle{
                 background: Palette.theme-primary;
                 border-radius: 2px;
                 width: 3px;
-                height: data.selected ? 18px: 0px;
+                height: playing ? 18px: 0px;
                 horizontal-stretch: 0;
                 animate height {
                     duration: 100ms;
@@ -81,14 +116,14 @@ component InnerSongList inherits Rectangle{
                 }
             }
         }
-        // 音乐名
+        // 歌曲名主列。
         Text {
             text: data.name;
             vertical-alignment: center;
             font-size: song-font-size;
             font-weight: song-font-weight;
             width: stretch-width * 3 / 8;
-            color: Palette.neutral-primary;
+            color: primary-font-color;
             overflow: elide;
         }
 
@@ -98,7 +133,7 @@ component InnerSongList inherits Rectangle{
             min-width: 10px;
         }
 
-        // 歌手
+        // 歌手列（可点击区域预留）。
         VerticalLayout {
             width: stretch-width *  2 / 8;
             alignment: center;
@@ -111,7 +146,7 @@ component InnerSongList inherits Rectangle{
                         vertical-alignment: center;
                         font-size: song-font-size;
                         font-weight: song-font-weight;
-                        color: Palette.neutral-primary-alt;
+                        color: alt-font-color;
                         overflow: elide;
                         width: 100%;
                     }
@@ -146,7 +181,7 @@ component InnerSongList inherits Rectangle{
             min-width: 10px;
         }
 
-        // 专辑
+        // 专辑列（可点击区域预留）。
         VerticalLayout {
             width: stretch-width *  3 / 8;
             alignment: center;
@@ -163,7 +198,7 @@ component InnerSongList inherits Rectangle{
                             vertical-alignment: center;
                             font-size: song-font-size;
                             font-weight: song-font-weight;
-                            color: Palette.neutral-primary-alt;
+                            color: alt-font-color;
                             overflow: elide;
                             width: 100%;
                         }
@@ -220,6 +255,7 @@ component InnerSongList inherits Rectangle{
                     property <length> heart-size: 16px;
                     property <color> hover-color: #C70039;
                     property <color> common-color: #E63946;
+                    // loved 与未 loved 使用两套图标。
                     if data.loved : IconFontFilled {
                         text: "\u{e708}";
                         color: common-color;
@@ -260,14 +296,14 @@ component InnerSongList inherits Rectangle{
 
         HorizontalLayout {
             width: 50px;
-            padding-left: 8px;
+            padding-left: 16px;
             Text {
-                text: "   " + data.duration;
+                text: data.duration;
                 vertical-alignment: center;
                 font-size: song-font-size;
                 font-weight: song-font-weight;
                 horizontal-stretch: 0;
-                color: Palette.neutral-secondary;
+                color: alt-font-color;
             }
         }
 
@@ -278,27 +314,13 @@ component InnerSongList inherits Rectangle{
     }
 
     states [
-        hover when ta_album.has-hover 
-            || ta_singer.has-hover
-            || ta_heart.has-hover
-            || ta_main.has-hover
-            : {
-            background: Palette.theme-lighter;
-            border-color: Palette.neutral-light;
-            border-width: 1px;
-            in-out {
-                animate background {
-                    duration: 50ms;
-                    easing: ease-out;
-                }
-            }
-        }
-
-
+        // 已选中态优先于普通斑马纹。
         seleceted when data.selected: {
             background: Palette.theme-lighter;
-            border-color: Palette.neutral-light;
+            border-color: Palette.theme-light;
             border-width: 1px;
+            drop-shadow-blur: 6px;
+            drop-shadow-color: Palette.theme-light;
             out {
                 animate background,border-color {
                     duration: 100ms;
@@ -307,7 +329,38 @@ component InnerSongList inherits Rectangle{
             }
         }
 
-        default when Math.mod(index, 2) == 0 : {
+        // 悬停态：包含主区域和子按钮区域，统一反馈。
+        hover when ta_album.has-hover 
+            || ta_singer.has-hover
+            || ta_heart.has-hover
+            || ta_main.has-hover
+            || ta_main.left-down
+            : {
+            background: Palette.neutral-lighter;
+            border-color: Palette.neutral-light;
+            drop-shadow-blur: playing ? 6px : 0;
+            drop-shadow-color: playing ? Palette.neutral-quaternary : (#ffffff).with-alpha(0);
+            border-width: 1px;
+            hover: true;
+            in-out {
+                animate background {
+                    duration: 50ms;
+                    easing: ease-out;
+                }
+            }
+        }
+
+        // 播放态：文本与边框使用主题色强调当前曲目。
+        playing when playing : {
+            background: Palette.white;
+            border-color: Palette.neutral-light;
+            drop-shadow-blur: 6px;
+            drop-shadow-color: Palette.neutral-quaternary;
+            border-width: 1px;
+        }
+        
+        // 斑马纹：偶数行背景略区分，提升可读性。
+        even when Math.mod(index, 2) == 0 : {
             background: Palette.white;
             border-color: Palette.neutral-light;
             border-width: 1px;
@@ -316,86 +369,201 @@ component InnerSongList inherits Rectangle{
 }
 
 export component Songlist inherits Rectangle {
-    in property <[SongDetail]> song-data;
     in property <length> margin;
-    in-out property <int> select-type : 0;
 
-    out property <bool> view-content: content.viewport-y != 0px;
-    
-    in-out property <length> content-viewport-y <=> content.viewport-y;
-    out property <length> content-viewport-height <=> content.viewport-height;
+
+    in property <[SongDetail]> song-data;
+
+    // 对外暴露滚动视口信息，供父容器做联动布局或吸顶控制。
+    // in-out property <length> content-viewport-y <=> content.viewport-y;
+
+    public function set-viewport-y(viewport-y : length) {
+        let total_scroll = -viewport-y;
+
+        if total-scroll > control-height {
+            control-scroll = control-height;
+            content.viewport-y = -total-scroll + control-height;
+        } else {
+            content.viewport-y = 0;
+            control-scroll = total-scroll;
+        }
+    }
+
+    out property <length> content-viewport-height: content.viewport-height + control-height - control-scroll + space-top;
+
+    // 页面来源信息（歌单/专辑/歌手/无），用于播放基准判定。
+    in property <int> base-id-1;
+    in property <int> base-id-2;
+    in property <int> base-type;
+
+    out property <int> base-type-playlist: 1;
+    out property <int> base-type-album: 2;
+    out property <int> base-type-artist: 3;
+    out property <int> base-type-none: 0;
+
+    // 选择模式：0=单选, 1=Ctrl加选, 2=Shift区间选。
+    property <int> select-type : 0;
+    property <int> select-count : 0;
+    property <bool> selecting: select-count != 0;
+
+    property <length> control-height: 46px;
+    property <length> control-scroll: 0px;
+    property <length> space-top: 6px;
 
     content := ListView {
+        y: control-height - control-scroll + space-top;
+        vertical-stretch: 1;
         vertical-scrollbar-policy: always-off;
-        for data[i] in song-data : Rectangle {
-            height: 44px;
+        height: parent.height - self.y;
+
+        for data[i] in song-data :  Rectangle {
+            height: 50px;
 
             InnerSongList {
                 index: i;
                 width: root.width - margin * 2;
                 data: data;
                 content-width: self.width;
-                clicked => {
-                    if (AppKeys.shift) {
+                selecting: root.selecting;
+                clicked(key) => {
+                    // 根据修饰键计算选择模式。
+                    if (key.shift) {
                         select-type = 2;
-                    } else if (AppKeys.control) {
-                        if (AppKeys.key == "a") {
-                            select-type = 3;
-                        } else {
-                            select-type = 1;
-                        }
+                    } else if (key.control) {
+                        select-type = 1;
                     } else {
                         select-type = 0;
                     }
-                    SongListProperty.clicked(i,select-type,song-data);
+                    root.select-count = SongListProperty.select(i,select-type,song-data);
                 }
 
                 double-clicked => {
-                    SongListProperty.play(data.id-1, data.id-2, song-data)
+                    // 双击播放：若当前未选中，先清空并选中当前行，再触发播放。
+                    if data.selected == false {
+                        SongListProperty.clear-select(song-data);
+                    }
+                    SongListProperty.select(i,select-type,song-data);
+                    SongListProperty.play(base-id-1, base-id-2, base-type, song-data);
+                    select-count = 0;
+                }
+
+                select => {
+                    root.select-count = SongListProperty.select(i,select-type,song-data);
                 }
             }
         }
     }
+
+    if lazy_show.output : control := MarginBox {
+        y: space-top;
+        height: control-height;
+        margin-buttom: 6px;
+        margin-horizontal: margin;
+        Rectangle {
+            // 选择工具栏：通过 lazy_show 延迟显示，避免闪烁。
+            border-radius: 6px;
+            background: Palette.white;
+            border-color: Palette.neutral-light;
+            border-width: 1px;
+            visible: lazy_show.output;
+            opacity: lazy_show.output ? 1 : 0;
+            drop-shadow-blur: 6px;
+            drop-shadow-color: Palette.neutral-quaternary;
+            HorizontalBox {
+                select-all := CheckBox {
+                    // checked: false;
+                    toggled => {
+                        select-count = SongListProperty.select(0, 3, song-data);
+                    }
+                }
+
+                Timer {
+                    running: lazy_show.output;
+                    interval: 50ms;
+                    triggered => {
+                        select-all.checked = select-count == song-data.length;
+                    }    
+                }
+
+                Text {
+                    vertical-alignment: center;
+                    text: "已选择" + select-count + " \u{2022}";
+                }
+
+                Text {
+                    vertical-alignment: center;
+                    text: "清除";
+                    color: Palette.warning;
+                    TouchArea {
+                        clicked => {
+                            SongListProperty.clear-select(song-data);
+                            select-count = 0;
+                        }
+                        mouse-cursor: MouseCursor.pointer;
+                    }
+                }
+
+                Rectangle {
+                    horizontal-stretch: 1;
+                }
+
+                Button {
+                    text: "播放";
+                    icon: @image-url("../assets/icon/svg/play.svg");
+                    colorize-icon: true;
+                    primary: true;
+                    clicked => {
+                        SongListProperty.play(base-id-1, base-id-2, base-type, song-data);
+                        select-count = 0;
+                    }
+                }
+
+                Button {
+                    text: "下一首播放";
+                    icon: @image-url("../assets/icon/svg/add_square.svg");
+                    colorize-icon: true;
+                    clicked => {
+                        SongListProperty.insert(song-data);
+                        select-count = 0;
+                    }
+                }
+
+                Button {
+                    text: "收藏";
+                    icon: @image-url("../assets/icon/svg/collections.svg");
+                    colorize-icon: true;
+                }
+
+                Button {
+                    text: "删除";
+                    icon: @image-url("../assets/icon/svg/dismiss.svg");
+                    colorize-icon: true;
+                    
+                }
+            }
+            animate opacity {
+                duration: 80ms;
+                easing: ease-in;
+            }
+        }
+    }
+
+    lazy_show := Timer {
+        // 只有 selecting 持续一段时间后才显示 control。
+        property <bool> waiting: false;
+        property <bool> output: false;
+        property <bool> input <=> selecting;
+        running: waiting;
+        interval: 240ms;
+        triggered => {
+            output = true;
+        }
+
+        changed input => {
+            waiting = input;
+            if !input {
+                output = false;
+            }
+        }
+    }
 }
-
-
-
-    //     property <[SongDetail]> data : [
-    //     {
-    // // id_1: int,
-    // // id_2: int,
-    
-    // name: "nananananananan",
-
-    // singer: "sisisisisisisis",
-
-    // album: "alalalalalalalal",
-    // // album_id_1: int,
-    // // album_id_2: int,
-    
-    // // pic_url: string,
-    // duration: "1:20",
-
-    // // image: image
-    // image: @image-url("D:\\code\\smt\\smt\\cache\\qrcode.png"),
-    //         loved: false
-    //     },
-    //             {
-    // // id_1: int,
-    // // id_2: int,
-    
-    // name: "nananananananan32984029",
-
-    // singer: "sisisisisisisis329402-941",
-
-    // album: "alalalalalalalal239401-",
-    // // album_id_1: int,
-    // // album_id_2: int,
-    
-    // // pic_url: string,
-    // duration: "1:20",
-
-    // image: @image-url("D:\\code\\smt\\smt\\cache\\qrcode.png"),
-    // loved: true
-    //     }
-    // ];

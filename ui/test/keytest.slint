@@ -3,7 +3,29 @@
 import { LineEdit } from "std-widgets.slint";
 import { IconFont } from "../assets/icon/iconfont.slint";
 export component T {
-    LineEdit {
-        
+    ta_main := TouchArea {
+        property <bool> left-down: false;
+        property <KeyboardModifiers> modifiers;
+        double-clicked => {
+        }
+
+        clicked => {
+        }
+
+        pointer-event(event) => {
+            if event.button == PointerEventButton.left {
+                if event.kind == PointerEventKind.down {
+                    left-down = true;
+                } else {
+                    left-down = false;
+                }
+
+                debug(left-down);
+
+                if event.kind == PointerEventKind.down || event.kind == PointerEventKind.up {
+                    modifiers = event.modifiers;
+                }
+            }
+        }
     }
 }

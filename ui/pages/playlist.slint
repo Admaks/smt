@@ -8,11 +8,12 @@ import { AppStatus, ScrollStatus } from "../app-status.slint";
 import "../assets/fonts/HarmonyOS_Sans_SC_Regular.ttf";
 
 export global PlaylistProperty{
+    // 歌曲列表数据与当前页面歌单 id（拆分为两个 int 以兼容 u64 映射）。
     in-out property <[SongDetail]> song-data;
     in-out property <int> playlist-id-1;
     in-out property <int> playlist-id-2: 2115392436;
 
-
+    // 头部展示信息。
     in-out property <string> name;
     in-out property <image>  cover;
     in-out property <string> create-time;
@@ -38,6 +39,7 @@ export component HeaderInner inherits MarginBox{
         height: 100%;
         width: 100%;
         Rectangle {
+            // 歌单封面。
             Image {
                 source: PlaylistProperty.cover;
                 height: parent.height;
@@ -53,6 +55,7 @@ export component HeaderInner inherits MarginBox{
             padding-left: 25px;
             horizontal-stretch: 1;
 
+            // 头部内部分区高度：标题 / 作者信息 / 描述 / 控制按钮。
             property <length> split-height: 4px;
             // property <length> content-height: parent.height;
             property <length> title-height: 30px;
@@ -129,6 +132,7 @@ export component HeaderInner inherits MarginBox{
                 spacing: 10px;
                 padding: 0px;
                 Button {
+                    // 预留播放全部入口，具体行为由外层绑定。
                     text: "播放全部";
                     
                     icon: @image-url("../assets/icon/svg/play.svg");
@@ -137,6 +141,7 @@ export component HeaderInner inherits MarginBox{
                 }
 
                 if PlaylistProperty.subscribable: Button {
+                    // 收藏按钮仅在可收藏场景显示。
                     text: PlaylistProperty.subscribed ? "取消收藏" : "收藏";
                     icon: PlaylistProperty.subscribed ? @image-url("../assets/icon/svg/collections_empty.svg") 
                         : @image-url("../assets/icon/svg/collections_empty.svg");
@@ -150,12 +155,13 @@ export component HeaderInner inherits MarginBox{
 
 export component Header inherits MarginBox {
     in property <length> margin-page;
-    min-height: 180px;
-    max-height: 240px;
+    // Header 在滚动时于 [min-height, max-height] 区间内变化。
+    min-height: 150px;
+    max-height: 210px;
 
     margin-horizontal: margin-page;
     margin-top: 10px;
-    margin-buttom: 30px;
+    margin-buttom: 0px;
     vertical-stretch: 0;
 
     HeaderInner { }
@@ -164,6 +170,7 @@ export component Header inherits MarginBox {
 export component Playlist inherits Rectangle{
     in-out property <length> margin;
 
+    // 通过虚拟滚动实现 Header 收缩：先消耗 header 区域，再滚动列表内容。
     property <length> header-height: header.max-height;
     property <length> virtual-scroll: 0;
     property <length> virtual-space: header.max-height - header.min-height;
@@ -177,25 +184,34 @@ export component Playlist inherits Rectangle{
         songlist := Songlist {
             song-data: PlaylistProperty.song-data;
             margin: root.margin;
+            base-id-1: PlaylistProperty.playlist-id-1;
+            base-id-2: PlaylistProperty.playlist-id-2;
+            base-type: self.base-type-playlist;
         }
     }
 
     scroll := ScrollView {
+        z: 100;
         width: parent.width;
         height: parent.height;
+        // viewport-height = header 可变高度区间 + songlist 实际可滚区域。
         viewport-height: header.max-height + songlist.content-viewport-height;
         viewport-width: 1px;
 
         scrolled => {
             let total_scroll = -self.viewport-y;
+            // 滚动量先用于压缩 header；超出后再转交给 songlist 内容区。
             if total-scroll > virtual-space {
                 virtual-scroll = virtual-space;
-                songlist.content-viewport-y = -total-scroll + virtual-space;
+                // songlist.content-viewport-y = -total-scroll + virtual-space;
+                songlist.set-viewport-y(-total-scroll + virtual-space);
             } else {
-                songlist.content-viewport-y = 0;
+                // songlist.content-viewport-y = 0;
+                songlist.set-viewport-y(0);
                 virtual-scroll = total-scroll;
             }
 
+            // 头部高度随虚拟滚动线性收缩。
             header-height = header.max-height - virtual-scroll;
         }
     }

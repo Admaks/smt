@@ -8,24 +8,28 @@ import { SongDetail } from "../types/types.slint";
 
 
 export global PlayerProperty {
+    // 当前播放中的歌曲信息，由外部状态驱动。
     in property <SongDetail> playing-song;
 
+    // 播放状态机：none/pause/playing/loading。
     in-out property <int> status-tragger: 1;
     out property <int> status-none: 0;
     out property <int> status-pause: 1;
     out property <int> status-playing: 2;
     out property <int> status-loading: 3;
 
+    // 播放模式状态。
     in-out property <bool> shuffled: false;
     in-out property <int> loop-type: 0;
 
-
+    // 文本时间与整型毫秒值并存：前者展示，后者用于 Slider 计算。
     in-out property <string> played-duration: "0:00:00";
     in-out property <string> total-duraiton: "0:00:00";
     
     in-out property <int> played-duration-int: 0;
     in-out property <int> total-duration-int: 1;
 
+    // 对外事件回调，由 Rust 侧绑定具体行为。
     callback next();
     callback prev();
     callback pause-resume();
@@ -41,6 +45,7 @@ export global PlayerProperty {
 component PauseButton inherits Rectangle {
     in property <color> common-background;
     Rectangle {
+        // 悬停时切换渐变和内层背景，突出主按钮可点击状态。
         states [
             hover when pause.has-hover :{
                 background: @linear-gradient(
@@ -78,6 +83,7 @@ component PauseButton inherits Rectangle {
             background: root.background;
 
             pause := TouchArea {
+                // 按当前播放状态切换图标：播放(三角) / 暂停(双竖线)。
                 IconFontFilled {
                     vertical-alignment: center;
                     text:  PlayerProperty.status-tragger == PlayerProperty.status-none 
@@ -119,10 +125,11 @@ component CommonButton inherits Rectangle{
 }
 
 export component Player inherits Rectangle {
-    // test 
+    // 播放器底栏：上方进度区 + 下方详情/控制区。
     background: white;
 
     Timer {
+        // 周期触发：推进播放状态并同步进度条（非用户拖拽时）。
         interval: PlayerProperty.event-loop-gap;
         running: true;
         triggered => {
@@ -153,6 +160,7 @@ export component Player inherits Rectangle {
                 margin-horizontal: 15px;
 
                 slider := Slider {
+                    // 使用毫秒整数，避免浮点误差导致的跳动。
                     minimum: 0;
                     maximum: PlayerProperty.total-duration-int;
                     value: 0;
@@ -162,11 +170,13 @@ export component Player inherits Rectangle {
                     property <bool> user-inputing;
 
                     released(position) => {
+                        // 用户释放滑块时才提交 seek，减少频繁跳播。
                         PlayerProperty.seek-to-duration(position);
                         user-inputing = false;
                     }
 
                     changed(value) => {
+                        // 拖动期间暂停自动同步，防止“抢焦点”回弹。
                         user-inputing = true;
                     }
                     
@@ -188,14 +198,14 @@ export component Player inherits Rectangle {
         MarginBox {
             margin-horizontal: 5px;
             margin-buttom: 5px;
-            // 详情
+            // 左侧：封面 + 曲目信息。
             detail := Rectangle {
                 x: 0;
                 width: (parent.width - control.width) / 2;
                 ta_detail := TouchArea {
                     
                 }
-                // 图片
+                // 封面区域。
                 HorizontalLayout {
                     alignment: start;
                     spacing: 10px;
@@ -222,7 +232,7 @@ export component Player inherits Rectangle {
 
                     VerticalLayout {
                         spacing: 0px;
-                        // 歌曲名
+                        // 歌曲名（主信息）。
                         Text {
                             vertical-alignment: center;
                             text: PlayerProperty.playing-song.name;
@@ -232,7 +242,7 @@ export component Player inherits Rectangle {
                             overflow: elide;
                             font-family: "Microsoft YaHei";
                         }
-                        // 歌手
+                        // 歌手（次信息，空值时不渲染）。
                         if !PlayerProperty.playing-song.singer.is-empty : Text {
                             vertical-alignment: top;
                             text:  "\u{2022} " + PlayerProperty.playing-song.singer;
@@ -263,6 +273,7 @@ export component Player inherits Rectangle {
                     Rectangle {
                         horizontal-stretch: 1;
                         CommonButton {
+                            // 循环模式图标：0=不循环,1=单曲循环,2=列表循环。
                             iconfont: {
                                 if PlayerProperty.loop-type == 0 {
                                     "\u{f175}" // no repeat
@@ -276,8 +287,6 @@ export component Player inherits Rectangle {
                                 PlayerProperty.toggle-repeat();
                             }
                         }
-                        // no repeat 
-                        // 1 repeat ef34
                     }
 
                     Rectangle {
@@ -310,12 +319,12 @@ export component Player inherits Rectangle {
                     Rectangle {
                         horizontal-stretch: 1;
                         CommonButton {
+                            // 随机播放开关图标。
                             iconfont: PlayerProperty.shuffled ? "\u{ef39}" : "\u{ef3f}";
                             clicked => {
                                 PlayerProperty.toggle-shuffle();
                             }
                         }
-                        // no shuffle ef3f
                     }
                 }
                 }
@@ -323,6 +332,7 @@ export component Player inherits Rectangle {
             }
 
             more := Rectangle {
+                // 右侧占位区：与左侧详情区平衡，确保控制区居中。
                 width: (parent.width - control.width) / 2;
                 x: parent.width - self.width;
                 horizontal-stretch: 1;

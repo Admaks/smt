@@ -214,7 +214,9 @@ component SideBarItem inherits Rectangle {
                     text: text;
                     vertical-alignment: center;
                     font-size: 14px;
+                    overflow: elide;
                 }
+
                 horizontal-stretch: 1;
             }
             
@@ -241,9 +243,45 @@ component SideBarItem inherits Rectangle {
     ]
 }
 
-export struct StaticItem {
-    text: string,
-    iconfont: string,
+component ToggleButton inherits Rectangle{
+    in-out property <bool> toggled;
+    IconFont {
+        overflow: TextOverflow.clip;
+        text: "\u{f076a}";
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        height: 100%;
+        width: 24px;
+        font-size: 18px;
+        ta := TouchArea {
+            in-out property <bool> left-down: false;
+            clicked => {
+                root.toggled = !root.toggled;
+                SideBarProperty.toggle(root.toggled);
+            }
+
+            pointer-event(event) => {
+                if event.button == PointerEventButton.left {
+                    if event.kind == PointerEventKind.down {
+                        left-down = true;
+                    } else {
+                        left-down = false;
+                    }
+                }
+            }
+        }
+    }
+
+    border-radius: 4px;
+
+    states [
+        left-down when ta.left-down : {
+            background: Palette.neutral-light.with-alpha(0.85);
+        }
+        hover when ta.has-hover: {
+            background: Palette.neutral-light.with-alpha(0.70);
+        }
+    ]
 }
 
 export component SideBar inherits Rectangle {
@@ -271,7 +309,7 @@ export component SideBar inherits Rectangle {
         interval: 4 * 60s;
         running: true;
         triggered => {
-            SideBarProperty.update();
+            // SideBarProperty.update();
         }
     }
 
@@ -293,50 +331,13 @@ export component SideBar inherits Rectangle {
         toggle-button:= Rectangle {
             height: 36px;
             width: 36px;
-            Rectangle {
-                // width: 24px;
+            ToggleButton {
                 width: 100%;
-                IconFont {
-                    overflow: TextOverflow.clip;
-                    text: "\u{f076a}";
-                    horizontal-alignment: center;
-                    vertical-alignment: center;
-                    height: 100%;
-                    width: 24px;
-                    font-size: 18px;
-                    ta := TouchArea {
-                        in-out property <bool> left-down: false;
-                        clicked => {
-                            toggled = !toggled;
-                            SideBarProperty.toggle(toggled);
-                        }
-
-                        pointer-event(event) => {
-                            if event.button == PointerEventButton.left {
-                                if event.kind == PointerEventKind.down {
-                                    left-down = true;
-                                } else {
-                                    left-down = false;
-                                }
-                            }
-                        }
-                    }
-                }
-
-                border-radius: 4px;
-
-                states [
-                    left-down when ta.left-down : {
-                        background: Palette.neutral-light.with-alpha(0.85);
-                    }
-                    hover when ta.has-hover: {
-                        background: Palette.neutral-light.with-alpha(0.70);
-                    }
-                ]
+                toggled <=> root.toggled;
             }
         }
 
-        ListView {
+        list := ListView {
             horizontal-stretch: 1;
             width: 100%;
             for item[i] in SideBarProperty.sidebar-items-show : Rectangle {
@@ -346,7 +347,8 @@ export component SideBar inherits Rectangle {
                 clip: item.display;
                 if item.type == divider : HorizontalDivider {}
 
-                HorizontalLayout {
+                content := HorizontalLayout {
+                    y: 0px;
                     padding-top: 2px;
                     padding-bottom: 2px;
                     if item.type == common : SideBarItem {
@@ -379,7 +381,9 @@ export component SideBar inherits Rectangle {
 
         VerticalLayout {
             padding-right: 4px;
-            HorizontalDivider {}
+            HorizontalDivider {
+                visible: list.height < list.viewport-height;
+            }
             setting-item := SideBarItem {
                 item-id: 100000000;
                 text: "设置";

@@ -1,7 +1,7 @@
 
 use chrono::Duration;
 use smt::{
-    i32x2_to_u64, player::{CurrentSongStatus, PlayerStatusKind}, u64_to_i32x2
+  i32x2_to_u64, player::PlayStatus, u64_to_i32x2
 };
 
 use crate::{app::App, *};
@@ -47,7 +47,7 @@ impl App {
         self.app_ui.unwrap().global::<PlayerProperty>().on_toggle_shuffle({
             let app_lib = app_runtime.app_lib.clone();
             move || {
-                app_lib.player_core.borrow_mut().shuffle_playlist();
+                app_lib.player_core.borrow_mut().toggle_shuffle();
             }
         });
 
@@ -86,26 +86,20 @@ impl App {
         let frame = self.app_lib.player_core.borrow_mut().event_loop();
         let app = self.app_ui.unwrap();
 
-        let duration = match frame.player_status {
-            PlayerStatusKind::Playing => {
+            let duration = match frame.play_status {
+              PlayStatus::Playing(duration) => {
                 app.global::<PlayerProperty>().set_status_tragger(app.global::<PlayerProperty>().get_status_playing());
-                match frame.current_song_status {
-                    CurrentSongStatus::Position(duration) => Some(duration),
-                    _ => None,
-                }
+                Some(duration)
             },
-            PlayerStatusKind::Paused => {
+              PlayStatus::Paused(duration) => {
                 app.global::<PlayerProperty>().set_status_tragger(app.global::<PlayerProperty>().get_status_pause());
-                match frame.current_song_status {
-                    CurrentSongStatus::Position(duration) => Some(duration),
-                    _ => None,
-                }
+                Some(duration)
             },
-            PlayerStatusKind::Stopped => {
+              PlayStatus::Stopped => {
                 app.global::<PlayerProperty>().set_status_tragger(app.global::<PlayerProperty>().get_status_none());
                 None
             },
-            PlayerStatusKind::Downloading => {
+              PlayStatus::Downloading => {
                 app.global::<PlayerProperty>().set_status_tragger(app.global::<PlayerProperty>().get_status_loading());
                 None
             }
