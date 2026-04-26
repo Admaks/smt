@@ -39,7 +39,6 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .await
                 .unwrap()
                 .set_system_backdrop(winit::platform::windows::BackdropType::MainWindow);
-                println!("mica is ok");
         }}).unwrap();
 
 

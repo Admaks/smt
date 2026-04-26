@@ -29,3 +29,32 @@ export component T {
         }
     }
 }
+
+export component ContextMenu {
+    ContextMenuArea {
+        Menu {
+            MenuItem {
+                title: @tr("Cut");
+                activated => { debug("Cut"); }
+            }
+            MenuItem {
+                title: @tr("Copy");
+                activated => { debug("Copy"); }
+            }
+            MenuItem {
+                title: @tr("Paste");
+                activated => { debug("Paste"); }
+            }
+            MenuSeparator {}
+            Menu {
+                title: @tr("Find");
+                MenuItem {
+                    title: @tr("Find Next");
+                }
+                MenuItem {
+                    title: @tr("Find Previous");
+                }
+            }
+        }
+    }
+}

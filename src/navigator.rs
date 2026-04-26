@@ -10,7 +10,6 @@ impl App {
 
 
         app_ui.global::<RouteProperty>().on_navigate(move |path | {
-            println!("Navigate to path: {}", path);
             if let Some(route) = Route::from_path(&path) {
                 route.set_route(&app);
                 true
@@ -33,9 +32,11 @@ impl App {
 
 #[repr(i32)]
 pub enum Route {
+    Home = 0,
     Playlist { 
         id: u64 
     } = 1,
+    PlayQueue = 2,
 }
 
 impl Route{
@@ -61,8 +62,20 @@ impl Route{
 
     pub fn set_route(&self, app_runtime: &App) {
         match self {
+            Route::Home => {
+                let app = app_runtime.app_ui.upgrade().unwrap();
+                app.global::<RouteProperty>().set_route(self.discriminant());
+            },
+
             Route::Playlist { id } => {
                 app_runtime.playlist_ui_load(*id);
+
+                let app = app_runtime.app_ui.upgrade().unwrap();
+                app.global::<RouteProperty>().set_route(self.discriminant());
+            },
+
+            Route::PlayQueue => {
+                // app_runtime.playqueue_ui_load();
 
                 let app = app_runtime.app_ui.upgrade().unwrap();
                 app.global::<RouteProperty>().set_route(self.discriminant());

@@ -27,9 +27,7 @@ impl App {
         self.bind_songlist();
         self.bind_player();
         self.bind_sidebar();
-        self.bind_route();
-        // Route::from_path("playlist/2115392436").unwrap().set_route(self);
-        
+        self.bind_route();        
     }
 
     pub fn load_app_status(&self) {
