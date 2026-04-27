@@ -1,4 +1,5 @@
 import { Playlist } from "pages/playlist.slint";
+import { PlayQueue } from "pages/playqueue.slint";
 
 export global RouteProperty {
     callback navigate(string) -> bool;
@@ -12,6 +13,10 @@ export component Route inherits Rectangle{
     in property <length> margin;
 
     if RouteProperty.route == 1 : Playlist{
+        margin: root.margin;
+    }
+
+    if RouteProperty.route == 2 : PlayQueue{
         margin: root.margin;
     }
 }

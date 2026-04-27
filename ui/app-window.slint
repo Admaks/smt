@@ -8,7 +8,21 @@ import { SongDetail, SongListProperty } from "./components/songlist.slint";
 import { Player, PlayerProperty } from "components/player.slint";
 import { VerticallDivider } from "components/divider.slint";
 import { Route, RouteProperty } from "route.slint";
-export { LoginProperty, AppStatus, SongDetail, PlaylistProperty, SongListProperty, PlayerProperty, SideBarProperty, SideBarItemMessage, RouteProperty }
+import { PlayQueueProperty } from "./pages/playqueue.slint";
+import { Frame, FrameProperty } from "components/frame.slint";
+export {
+    LoginProperty, 
+    AppStatus, 
+    SongDetail, 
+    PlaylistProperty, 
+    SongListProperty, 
+    PlayerProperty, 
+    SideBarProperty, 
+    SideBarItemMessage, 
+    RouteProperty, 
+    PlayQueueProperty, 
+    FrameProperty 
+}
 
 
 export component AppWindow inherits Window {
@@ -18,10 +32,12 @@ export component AppWindow inherits Window {
     preferred-height: 1080px * 0.5;
     preferred-width: 1920px * 0.5;
 
-
     property <color> main-content-color: Palette.white.with-alpha(0.6);
     property <bool> sidebar-toggled: false;
     property <length> sidebar-current-width : 0;
+
+    no-frame: true;
+    resize-border-width: 6px;
 
     if AppStatus.logined: Rectangle {
         height: 100%;
@@ -49,11 +65,11 @@ export component AppWindow inherits Window {
         // 优化动画，不为宽度增加动画以提升性能，可能会出现页面闪烁
         main_content := Rectangle {
             background: root.main-content-color;
-            height: parent.height - player.height;
+            height: parent.height - player.height - frame.height;
 
             width: root.width - sidebar-current-width;
             x: sidebar-current-width;
-            y: 0;
+            y: frame.height;
 
             property <length>  max-width-t: 1280px;
             property <length>  min-width-t: 600px;
@@ -76,6 +92,13 @@ export component AppWindow inherits Window {
             }
         }
 
+        frame := Frame {
+            width: root.width - sidebar-current-width;
+            y: 0;
+            x: sidebar-current-width;
+            background: root.main-content-color;
+        }
+
         player := Player {
             background: root.main-content-color;
 
@@ -86,33 +109,5 @@ export component AppWindow inherits Window {
     
     if !AppStatus.logined: Login{ }
 
-
-
-    public function set_foucs() {
-        // focus.focus();
-    }
-
-    // focus := FocusScope {
-    //     // focus-on-click: true;
-    //     key-pressed(event) => {
-    //         AppKeys.control = event.modifiers.control;
-    //         AppKeys.shift = event.modifiers.shift;
-    //         AppKeys.meta = event.modifiers.meta;
-    //         AppKeys.alt = event.modifiers.alt;
-
-    //         AppKeys.key = event.text;
-    //         accept
-    //     }
-
-    //     key-released(event) => {
-    //         AppKeys.control = event.modifiers.control;
-    //         AppKeys.shift = event.modifiers.shift;
-    //         AppKeys.meta = event.modifiers.meta;
-    //         AppKeys.alt = event.modifiers.alt;
-
-    //         AppKeys.key = event.text;
-    //         accept
-    //     }
-    // }
 }
 

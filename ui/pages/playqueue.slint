@@ -1,6 +1,50 @@
+import { SongDetail } from "../types/types.slint";
+import { Songlist } from "../components/songlist.slint";
+// import { PlayerProperty } from "../components/player.slint";
 
+export global PlayQueueProperty {
+    in-out property <int> base-id-1;
+    in-out property <int> base-id-2;
+    in-out property <int> base-type;
 
-export component PlayQueue {
-    
+    out property <int> base-type-playlist: 1;
+    out property <int> base-type-album: 2;
+    out property <int> base-type-artist: 3;
+    out property <int> base-type-none: 0;
+
+    in-out property <[SongDetail]> queue;
+
+    callback reload-queue();
+}
+
+export component PlayQueue inherits Rectangle{
+    in property <length> margin;
+    Timer {
+        running: true;
+        interval: 80ms;
+        triggered => {
+            PlayQueueProperty.reload-queue();
+        }
+    }
+
+    VerticalLayout {
+        HorizontalLayout {
+            alignment: start;
+            padding-left: margin;
+            padding-right: margin;
+            Text {
+                vertical-alignment: center;
+                text: "播放队列";
+                font-size: 40px;
+            }
+        }
+        Songlist {
+            song-data: PlayQueueProperty.queue;
+            base-id-1: PlayQueueProperty.base-id-1;
+            base-id-2: PlayQueueProperty.base-id-2;
+            base-type: PlayQueueProperty.base-type;
+            margin: root.margin;
+        }
+    }
 }
 

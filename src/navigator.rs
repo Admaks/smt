@@ -56,6 +56,8 @@ impl Route{
                 let id = id_str.parse().ok()?;
                 Some(Route::Playlist { id })
             },
+            "play_queue" => Some(Route::PlayQueue),
+            "home" => Some(Route::Home),
             _ => None,
         }
     }
@@ -75,7 +77,7 @@ impl Route{
             },
 
             Route::PlayQueue => {
-                // app_runtime.playqueue_ui_load();
+                app_runtime.play_queue_ui_load();
 
                 let app = app_runtime.app_ui.upgrade().unwrap();
                 app.global::<RouteProperty>().set_route(self.discriminant());

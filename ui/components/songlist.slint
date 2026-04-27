@@ -162,7 +162,7 @@ component InnerSongList inherits Rectangle{
 
                     states [
                         hover when ta_singer.has-hover : {
-                            background: Palette.theme-light;
+                            background: data.selected ? Palette.theme-light : Palette.neutral-light;
                             in {
                                 animate background{
                                     duration: 100ms;
@@ -215,7 +215,7 @@ component InnerSongList inherits Rectangle{
 
                     states [
                         hover when ta_album.has-hover : {
-                            background: Palette.theme-light;
+                            background: data.selected ? Palette.theme-light : Palette.neutral-light;
                             in {
                                 animate background{
                                     duration: 100ms;
@@ -370,27 +370,7 @@ component InnerSongList inherits Rectangle{
 
 export component Songlist inherits Rectangle {
     in property <length> margin;
-
-
     in property <[SongDetail]> song-data;
-
-    // 对外暴露滚动视口信息，供父容器做联动布局或吸顶控制。
-    // in-out property <length> content-viewport-y <=> content.viewport-y;
-
-    public function set-viewport-y(viewport-y : length) {
-        let total_scroll = -viewport-y;
-
-        if total-scroll > control-height {
-            control-scroll = control-height;
-            content.viewport-y = -total-scroll + control-height;
-        } else {
-            content.viewport-y = 0;
-            control-scroll = total-scroll;
-        }
-    }
-
-    out property <length> content-viewport-height: content.viewport-height + control-height - control-scroll + space-top;
-
     // 页面来源信息（歌单/专辑/歌手/无），用于播放基准判定。
     in property <int> base-id-1;
     in property <int> base-id-2;
@@ -409,6 +389,21 @@ export component Songlist inherits Rectangle {
     property <length> control-height: 50px;
     property <length> control-scroll: 0px;
     property <length> space-top: 6px;
+
+    // 对外暴露滚动视口信息，供父容器做联动布局或吸顶控制。
+    out property <length> content-viewport-height: content.viewport-height + control-height - control-scroll + space-top;
+    public function set-viewport-y(viewport-y : length) {
+        let total_scroll = -viewport-y;
+
+        if total-scroll > control-height {
+            control-scroll = control-height;
+            content.viewport-y = -total-scroll + control-height;
+        } else {
+            content.viewport-y = 0;
+            control-scroll = total-scroll;
+        }
+    }
+
 
     content := ListView {
         y: control-height - control-scroll + space-top;
@@ -487,7 +482,7 @@ export component Songlist inherits Rectangle {
 
                 Text {
                     vertical-alignment: center;
-                    text: "已选择" + select-count + " \u{2022}";
+                    text: "已选择" + select-count + "\u{2022}项";
                 }
 
                 Text {

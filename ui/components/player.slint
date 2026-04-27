@@ -1,5 +1,5 @@
 import { AppStatus } from "../app-status.slint";
-import { Slider } from "std-widgets.slint";
+import { Slider, ProgressIndicator } from "std-widgets.slint";
 import { MarginBox } from "margin-box.slint";
 import { HorizontalDivider } from "divider.slint";
 import { Palette } from "../palette.slint";
@@ -134,7 +134,7 @@ export component Player inherits Rectangle {
         running: true;
         triggered => {
             PlayerProperty.event-loop();
-            slider.update-slider();
+            progress.update-slider();
         }
     }
 
@@ -159,7 +159,7 @@ export component Player inherits Rectangle {
                 horizontal-stretch: 1;
                 margin-horizontal: 15px;
 
-                slider := Slider {
+                progress := Slider {
                     // 使用毫秒整数，避免浮点误差导致的跳动。
                     minimum: 0;
                     maximum: PlayerProperty.total-duration-int;
@@ -186,6 +186,14 @@ export component Player inherits Rectangle {
                             self.value = PlayerProperty.played-duration-int;
                         }
                     }
+
+                    visible: PlayerProperty.status-tragger != PlayerProperty.status-loading;
+                }
+
+                ProgressIndicator {
+                    indeterminate: true;
+                    width: 100%;
+                    visible: PlayerProperty.status-tragger == PlayerProperty.status-loading;
                 }
             }
             

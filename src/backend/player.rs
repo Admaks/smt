@@ -584,6 +584,12 @@ impl PlayerCore {
 		});
 	}
 
+
+	/// 获取当前的播放列表
+	pub fn get_playlist(&self) -> (&[u64], PlaylistBase) {
+		(&self.playlist, self.playlist_base.clone())
+	}
+
 	/// 停止当前 sink 中的音频。
 	///
 	/// 这是一个“只碰音频输出，不改业务状态”的底层动作；调用方负责自己维护 `last_status`。

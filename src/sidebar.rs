@@ -171,10 +171,23 @@ impl App {
             index: 0,
         });
 
+        push_item(SideBarItemMessage {
+            name: "播放列表".into(),
+            route: "play_queue".into(),
+            iconfont: "\u{e856}".into(),
+            icon: slint::Image::default(),
+            father: -1,
+            grade: 0,
+            display: true,
+            expand: false,
+            r#type: SideBarItemType::Common as i32,
+            index: 0,
+        });
+
         let created_container_row = push_item(SideBarItemMessage {
             name: "创建的歌单".into(),
             route: "create_playlist".into(),
-            iconfont: "\u{e6f3}".into(),
+            iconfont: "\u{e861}".into(),
             icon: slint::Image::default(),
             father: -1,
             grade: 0,
@@ -204,7 +217,7 @@ impl App {
         let subscribed_container_row = push_item(SideBarItemMessage {
             name: "关注的歌单".into(),
             route: "subscribe_playlist".into(),
-            iconfont: "\u{e6f3}".into(),
+            iconfont: "\u{e861}".into(),
             icon: slint::Image::default(),
             father: -1,
             grade: 0,

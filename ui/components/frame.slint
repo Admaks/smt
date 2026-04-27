@@ -1,0 +1,123 @@
+import { IconFont } from "../assets/icon/iconfont.slint";
+import { Palette } from "../palette.slint";
+export global FrameProperty {
+    callback maximize();
+    callback minimize();
+    callback close();
+    callback update-title-bar-rect(x: length, y: length, width: length, height: length);
+
+    callback listen-maximize() -> bool;
+}
+
+export component Frame inherits Rectangle { 
+    height: 30px;
+    
+    property <bool> maximized;
+
+    Timer {
+        running: true;
+        interval: 50ms;
+        triggered => {
+            maximized = FrameProperty.listen-maximize();
+
+            if root.width > root.button-width * 3 {
+                FrameProperty.update-title-bar-rect(
+                    root.x,
+                    root.y,
+                    root.width - root.button-width * 3,
+                    root.height
+                );
+            } else {
+                FrameProperty.update-title-bar-rect(
+                    root.x,
+                    root.y,
+                    0px,
+                    root.height
+                );
+            }
+
+            // TODO: 后续若恢复 Win32 HTMAXBUTTON 路径，可在此上报最大化按钮区域。
+        }
+    }
+
+    property <length> button-width: 40px;
+    TouchArea {
+        // clicked => {
+        //     // if self.pressed {
+        //         FrameProperty.move();
+        //     // }
+        // }
+
+        // double-clicked => {
+        //     FrameProperty.maximize();
+        // }
+    }
+
+    HorizontalLayout {
+        width: 100%;
+        Rectangle {
+            horizontal-stretch: 1;
+        }
+        
+        Rectangle {
+            horizontal-stretch: 0;
+            width: button-width;
+            IconFont {
+                vertical-alignment: center;
+                text: "\u{ebce}";
+                font-size: 12px;
+            }
+            ta_min := TouchArea {
+                clicked => {
+                    FrameProperty.minimize();
+                }
+            }
+            states [
+                hover when ta_min.has-hover : {
+                    background: Palette.neutral-light;
+                }
+            ]
+        }
+        
+        Rectangle {
+            horizontal-stretch: 0;
+            width: button-width;
+            IconFont {
+                vertical-alignment: center;
+                text: maximized ? "\u{eb95}" : "\u{eb73}";
+                font-weight: 550;
+                font-size: 12px;
+            }
+            ta_max := TouchArea {
+                clicked => {
+                    FrameProperty.maximize();
+                }
+            }
+            states [
+                hover when ta_max.has-hover : {
+                    background: Palette.neutral-light;
+                }
+            ]
+        }
+        
+        Rectangle {
+            horizontal-stretch: 0;
+            width: button-width;
+            IconFont {
+                vertical-alignment: center;
+                text: "\u{f367}";
+                font-size: 12px;
+            }
+            ta_close := TouchArea {
+                clicked => {
+                    FrameProperty.close();
+                }
+            }
+            states [
+                hover when ta_close.has-hover : {
+                    background: Palette.error;
+                }
+            ]
+        }
+    }
+}

@@ -8,6 +8,8 @@ pub mod types;
 pub mod navigator;
 pub mod sidebar;
 pub mod app;
+pub mod play_queue;
+pub mod frame;
 
 
 use i_slint_backend_winit::{WinitWindowAccessor};
@@ -32,19 +34,25 @@ fn main() -> Result<(), Box<dyn Error>> {
         slint::spawn_local({
             let app_weak = app_weak.clone();
             async move {
-            app_weak
+            let winit_window = app_weak
                 .unwrap()
                 .window()
                 .winit_window()
                 .await
-                .unwrap()
-                .set_system_backdrop(winit::platform::windows::BackdropType::MainWindow);
+                .unwrap();
+
+            winit_window.set_system_backdrop(winit::platform::windows::BackdropType::MainWindow);
+            winit_window.set_undecorated_shadow(true);
+            winit_window.set_decorations(false);
+            winit_window.set_resizable(true);
         }}).unwrap();
 
 
         let app_lib = Rc::new(AppLib::new().await);
         let app_runtime = App::new(app_weak.clone(), app_lib.clone());
         
+        app_runtime.bind_frame();
+
         if app_lib.login_user.borrow().is_none() {
             app_weak
                 .upgrade()
@@ -66,20 +74,6 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .set_logined(true);
             app_runtime.bind_event();
         }
-
-
-        // app.window().on_winit_window_event({
-        //     let app_weak = app_weak.clone();
-        //     move |_window, window_event| {
-        //         match window_event {
-        //             winit::event::WindowEvent::Focused(true) => {
-        //                 app_runtime.app_weak.upgrade().unwrap().invoke_set_foucs();
-        //             }
-        //             _ => {}
-        //         }
-        //         i_slint_backend_winit::EventResult::Propagate
-        //     }
-        // });
 
         app.run().unwrap();
     });

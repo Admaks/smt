@@ -1,4 +1,5 @@
 use anyhow::Context;
+use get_size2::GetSize;
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -13,7 +14,7 @@ where
 {
     Ok(Option::<String>::deserialize(deserializer)?.unwrap_or_default())
 }
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, GetSize)]
 #[serde(rename_all = "camelCase")]
 #[derive(Default)]
 pub struct Account {
@@ -97,7 +98,7 @@ impl TryFrom<Value> for Account {
 }
 
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, GetSize)]
 #[serde(rename_all = "camelCase")]
 pub struct PlaylistDetail{
     pub id: u64,
@@ -177,7 +178,7 @@ impl TryFrom<Value> for PlaylistDetail {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, GetSize)]
 pub struct TrackDetail {
     #[serde(rename = "al")]
     pub album: AlbumInTrack,
@@ -192,7 +193,7 @@ pub struct TrackDetail {
     pub fee: i32
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, GetSize)]
 #[serde(rename_all = "camelCase")]
 pub struct AlbumInTrack {
     pub id: u64,
@@ -203,7 +204,7 @@ pub struct AlbumInTrack {
     pub translation: Vec<String>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, GetSize)]
 pub struct ArtistInTrack {
     pub id: u64,
     pub name: String,
@@ -218,7 +219,7 @@ impl TryFrom<Value> for TrackDetail {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, GetSize)]
 pub struct TrackUrl {
     #[serde(rename = "br")]
     pub bitrate: Option<i32>,
@@ -233,7 +234,7 @@ impl TryFrom<Value> for TrackUrl {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, GetSize)]
 #[serde(rename_all = "camelCase")]
 pub struct PlaylistShortInfo {
     pub id: u64,
@@ -252,7 +253,7 @@ impl TryFrom<Value> for PlaylistShortInfo {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, GetSize)]
 pub struct UserPlaylists {
     pub lovelist: PlaylistShortInfo,
     pub created: Vec<PlaylistShortInfo>,

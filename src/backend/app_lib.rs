@@ -4,6 +4,7 @@ use crate::{Config, player::PlayerCore};
 use anyhow::{Context, Result};
 use async_compat::CompatExt;
 
+use get_size2::GetSize;
 use image::{Rgba, RgbaImage};
 use qrcode_generator::QrCodeEcc;
 use crate::NcmApi;
@@ -23,11 +24,25 @@ impl AppLib {
     pub async fn new() -> Self {
         let config = Config::default();
 
-        let track_detail_cache =
-            moka::sync::Cache::new(Config::TRACK_DETAIL_MEMERY_CACHE_CAPACITY);
-        let playlist_cache =
-            moka::sync::Cache::new(Config::PLAYLIST_MEMERY_CACHE_CAPACITY);
+        // let track_detail_cache =
+        //     moka::sync::Cache::new(Config::TRACK_DETAIL_MEMERY_CACHE_CAPACITY);
+        // let playlist_cache =
+        //     moka::sync::Cache::new(Config::PLAYLIST_MEMERY_CACHE_CAPACITY);
         
+        let track_detail_cache = moka::sync::CacheBuilder::new(Config::TRACK_DETAIL_MEMERY_CACHE_CAPACITY)
+            .weigher(|key, value : &crate::model::TrackDetail| {
+                (value.get_size() + std::mem::size_of_val(key)).try_into().unwrap()
+            })
+            .time_to_live(std::time::Duration::from_secs(60 * 60)) // 1 hour
+            .build();
+        let playlist_cache =
+            moka::sync::CacheBuilder::new(Config::PLAYLIST_MEMERY_CACHE_CAPACITY)
+            .weigher(|key, value : &crate::model::PlaylistDetail| {
+                (value.get_size() + std::mem::size_of_val(key)).try_into().unwrap()
+            })
+            .time_to_live(std::time::Duration::from_secs(60 * 60)) // 1 hour
+            .build();
+
         // println!("Loading cookie from {:?}", config.cookie_store_path);
         let cookie_str = std::fs::read_to_string(&config.cookie_store_path)
             .unwrap_or_default();
