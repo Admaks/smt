@@ -49,6 +49,3 @@ pub fn to_track_detail_detail(app_lib: AppLibRc ,track_detail: TrackDetail, imag
         loved
     };
 }
-
-
-

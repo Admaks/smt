@@ -10,6 +10,7 @@ pub mod sidebar;
 pub mod app;
 pub mod play_queue;
 pub mod frame;
+pub mod lyrics_page;
 
 
 use i_slint_backend_winit::{WinitWindowAccessor};

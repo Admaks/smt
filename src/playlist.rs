@@ -100,7 +100,7 @@ impl App {
         }
     }
 
-    pub fn bind_playlist_page(&self) {
+    pub fn bind_playlist(&self) {
         // let app = app_weak.upgrade().unwrap();
 
         // app.global::<PlaylistProperty>().on_load_data({

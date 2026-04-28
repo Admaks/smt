@@ -172,7 +172,7 @@ impl App {
         });
 
         push_item(SideBarItemMessage {
-            name: "播放列表".into(),
+            name: "播放队列".into(),
             route: "play_queue".into(),
             iconfont: "\u{e856}".into(),
             icon: slint::Image::default(),

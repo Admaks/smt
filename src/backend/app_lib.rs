@@ -23,11 +23,6 @@ pub struct AppLib {
 impl AppLib {
     pub async fn new() -> Self {
         let config = Config::default();
-
-        // let track_detail_cache =
-        //     moka::sync::Cache::new(Config::TRACK_DETAIL_MEMERY_CACHE_CAPACITY);
-        // let playlist_cache =
-        //     moka::sync::Cache::new(Config::PLAYLIST_MEMERY_CACHE_CAPACITY);
         
         let track_detail_cache = moka::sync::CacheBuilder::new(Config::TRACK_DETAIL_MEMERY_CACHE_CAPACITY)
             .weigher(|key, value : &crate::model::TrackDetail| {
@@ -35,6 +30,7 @@ impl AppLib {
             })
             .time_to_live(std::time::Duration::from_secs(60 * 60)) // 1 hour
             .build();
+        
         let playlist_cache =
             moka::sync::CacheBuilder::new(Config::PLAYLIST_MEMERY_CACHE_CAPACITY)
             .weigher(|key, value : &crate::model::PlaylistDetail| {

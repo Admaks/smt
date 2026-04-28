@@ -1,6 +1,6 @@
 use std::{
 	cell::RefCell,
-	collections::{HashMap, VecDeque},
+	collections::{HashMap, HashSet, VecDeque},
 	fs::{self, File},
 	io::{BufReader, Write},
 	path::{Path, PathBuf},
@@ -14,6 +14,7 @@ use std::{
 
 use anyhow::{Context, Result};
 use async_compat::CompatExt;
+use image::buffer;
 use rand::seq::SliceRandom;
 use rodio::cpal::traits::{DeviceTrait, HostTrait};
 use rodio::{Decoder, OutputStream, OutputStreamHandle, Sample, Sink, Source};
@@ -266,6 +267,9 @@ pub struct PlayerCore {
 
 	cache_dir: PathBuf,
 	error_count: usize,
+
+	playlist_update_timestamp: time::Instant,
+
 	/// 当前曲目的离散状态缓存。
 	///
 	/// 这个字段只记录无法从 `sink` 直接推断出的状态，主要是：
@@ -346,7 +350,8 @@ impl PlayerCore {
 		pause_after_start: bool,
 	) -> Result<()> {
 		let file = File::open(path).context("Cannot open audio file")?;
-		let source = Decoder::new(BufReader::new(file)).context("Cannot decode audio file")?;
+		let source = Decoder::new(BufReader::with_capacity(Config::MUSIC_BUFFER_SIZE, file))
+			.context("Cannot decode audio file")?;
 		self.active_playback_epoch = self.active_playback_epoch.wrapping_add(1);
 		if self.active_playback_epoch == 0 {
 			self.active_playback_epoch = 1;
@@ -380,11 +385,15 @@ impl PlayerCore {
 			return;
 		}
 
-		let Some(current_default_name) = Self::current_default_output_device_name() else {
-			return;
-		};
+		// let Some(current_default_name) = Self::current_default_output_device_name() else {
+		// 	return;
+		// };
 
-		if self.last_default_output_device_name.as_deref() == Some(current_default_name.as_str()) {
+		// if self.last_default_output_device_name.as_deref() == Some(current_default_name.as_str()) {
+		// 	return;
+		// }
+
+		if !self.needs_default_output_rebind() {
 			return;
 		}
 
@@ -490,10 +499,21 @@ impl PlayerCore {
 			handled_finished_epoch: 0,
 			pending_seek_after_start: None,
 			playlist_base: PlaylistBase::None,
+			playlist_update_timestamp: time::Instant::now(),
 		};
 		core.load_persisted_state();
 		Ok(core)
 	}
+
+
+	fn update_timestamp(&mut self) {
+		self.playlist_update_timestamp = time::Instant::now();
+	}
+
+	pub fn get_playlist_update_timestamp(&self) -> time::Instant {
+		self.playlist_update_timestamp
+	}
+
 
 	/// 从磁盘恢复播放上下文。
 	///
@@ -543,7 +563,7 @@ impl PlayerCore {
 			self.last_status = PlayStatus::Stopped;
 			self.pending_seek_after_start = None;
 		}
-
+		self.update_timestamp();
 		self.stop_current_playback();
 	}
 
@@ -741,11 +761,24 @@ impl PlayerCore {
 	pub fn replace_playlist(&mut self, new_playlist: Vec<u64>, playlist_base: PlaylistBase) {
 		self.handle_replace_playlist(new_playlist);
 		self.playlist_base = playlist_base;
+		self.update_timestamp();
 	}
 
 	/// 把一批歌曲插入到“当前歌曲之后”。
 	pub fn insert_songs(&mut self, song_ids: &[u64]) {
 		self.handle_insert_songs(song_ids);
+		self.update_timestamp();
+	}
+
+	/// 从当前播放列表中批量删除指定歌曲（按 song id 匹配，删除全部匹配项）。
+	///
+	/// 返回值是实际删除的条目数。
+	pub fn remove_songs(&mut self, song_ids: &[u64]) -> usize {
+		let removed = self.handle_remove_songs(song_ids);
+		if removed > 0 {
+			self.update_timestamp();
+		}
+		removed
 	}
 
 	pub fn toggle_shuffle(&mut self) {
@@ -759,16 +792,19 @@ impl PlayerCore {
 				self.shuffle_state = ShuffleState::Disabled;
 			}
 		}
+		self.update_timestamp();
 	}
 
 	/// 打乱当前播放列表。
 	pub fn shuffle_playlist(&mut self) {
 		self.handle_shuffle_playlist();
+		self.update_timestamp();
 	}
 
 	/// 恢复播放列表到乱序前的原始顺序。
 	pub fn restore_playlist_order(&mut self) {
 		self.handle_restore_playlist_order();
+		self.update_timestamp();
 	}
 
 	/// 直接设置播放模式。
@@ -894,6 +930,14 @@ impl PlayerCore {
 			return;
 		}
 
+		let songs_hash = song_ids.iter().copied().collect::<HashSet<u64>>();
+
+		self.playlist.retain(|id| !songs_hash.contains(id));
+		
+		if let Some(original) = self.original_playlist.as_mut() {
+			original.retain(|id| !songs_hash.contains(id));
+		}
+
 		if self.playlist.is_empty() {
 			self.playlist.extend(song_ids.iter().copied());
 			self.current_index = Some(0);
@@ -923,6 +967,95 @@ impl PlayerCore {
 			let block_current_track = self.download_requests_current_track(&to_prefetch);
 			self.handle_download(to_prefetch, block_current_track);
 		}
+	}
+
+	/// 内部实现：从当前队列中删除一批歌曲，并修正当前索引与播放状态。
+	fn handle_remove_songs(&mut self, song_ids: &[u64]) -> usize {
+		if song_ids.is_empty() || self.playlist.is_empty() {
+			return 0;
+		}
+
+		let remove_set: HashSet<u64> = song_ids.iter().copied().collect();
+		if remove_set.is_empty() {
+			return 0;
+		}
+
+		let previous_status = self.status_snapshot();
+		let old_current_index = self.current_index;
+		let mut removed_before_current = 0usize;
+		let mut removed_current = false;
+
+		let mut new_playlist = Vec::with_capacity(self.playlist.len());
+		for (idx, id) in self.playlist.iter().copied().enumerate() {
+			if remove_set.contains(&id) {
+				if let Some(current_idx) = old_current_index {
+					if idx < current_idx {
+						removed_before_current += 1;
+					} else if idx == current_idx {
+						removed_current = true;
+					}
+				}
+				continue;
+			}
+			new_playlist.push(id);
+		}
+
+		let removed = self.playlist.len().saturating_sub(new_playlist.len());
+		if removed == 0 {
+			return 0;
+		}
+
+		self.playlist = new_playlist;
+
+		if let Some(original) = self.original_playlist.as_mut() {
+			original.retain(|id| !remove_set.contains(id));
+		}
+
+		if self.playlist.is_empty() {
+			self.current_index = None;
+			self.stop_current_playback();
+			self.pending_seek_after_start = None;
+			self.last_status = PlayStatus::Stopped;
+			self.error_count = 0;
+			self.songs.borrow_mut().clear();
+			return removed;
+		}
+
+		self.current_index = old_current_index.map(|current_idx| {
+			if removed_current {
+				let shifted = current_idx.saturating_sub(removed_before_current);
+				shifted.min(self.playlist.len() - 1)
+			} else {
+				current_idx.saturating_sub(removed_before_current)
+			}
+		});
+
+		let remain_set: HashSet<u64> = self.playlist.iter().copied().collect();
+		self.songs.borrow_mut().retain(|id, _| remain_set.contains(id));
+
+		if removed_current {
+			self.stop_current_playback();
+			self.pending_seek_after_start = None;
+			self.error_count = 0;
+
+			match previous_status {
+				PlayStatus::Playing(_) | PlayStatus::Downloading => {
+					self.handle_start_current();
+				}
+				PlayStatus::Paused(_) => {
+					self.handle_start_current();
+					if !self.sink.empty() {
+						self.sink.pause();
+						self.last_status = PlayStatus::Paused(self.playback_position());
+					}
+				}
+				PlayStatus::Stopped => {
+					self.last_status = PlayStatus::Stopped;
+				}
+			}
+		}
+
+		removed
 	}
 
 	/// 内部实现：开启乱序播放。

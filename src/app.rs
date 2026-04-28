@@ -23,11 +23,12 @@ impl App {
 
     pub fn bind_event(&self) {
         self.load_app_status();
-        self.bind_playlist_page();
+        self.bind_playlist();
         self.bind_songlist();
         self.bind_player();
         self.bind_sidebar();
-        self.bind_route();        
+        self.bind_route(); 
+        self.bind_play_queue();
     }
 
     pub fn load_app_status(&self) {

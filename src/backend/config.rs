@@ -61,4 +61,6 @@ impl Config {
     pub const PLAYLIST_MEMERY_CACHE_CAPACITY: u64 = 1024 * 1024 * 1;
 
     pub const NAVIGATOR_HISTORY_MAX: usize = 100;
+
+    pub const MUSIC_BUFFER_SIZE: usize = 1024 * 1024 * 5;
 }

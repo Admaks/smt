@@ -218,7 +218,7 @@ export component Player inherits Rectangle {
                     alignment: start;
                     spacing: 10px;
 
-                    Rectangle {
+                    if !AppStatus.show-playing : Rectangle {
                         height: 100%;
                         width:  self.height - 10px + 5px;
                         picture := Rectangle {
@@ -236,7 +236,6 @@ export component Player inherits Rectangle {
                             }
                         }
                     }
-
 
                     VerticalLayout {
                         spacing: 0px;
@@ -257,6 +256,10 @@ export component Player inherits Rectangle {
                             color: Palette.neutral-secondary;
                             overflow: elide;
                             font-size: 14px;    
+                        }
+                        animate x, width {
+                            duration: 100ms;
+                            easing: ease-in;
                         }
                     }
                 }

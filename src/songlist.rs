@@ -103,12 +103,16 @@ impl App {
         if id == *player_core.get_playlist_base() && playlist.len() == 1{
             player_core.play(playlist[0]);
         } else {
-            let playlist_0 = playlist[0];
-            let playlist_len = playlist.len();
-            player_core.replace_playlist(playlist, id);
-            if playlist_len == 1 {
-                player_core.play(playlist_0);
+            if playlist.len() == 1 {
+                let new_playlist = model_rc
+                    .iter()
+                    .map(|itme| { i32x2_to_u64(itme.id_1, itme.id_2) })
+                    .collect();
+                
+                player_core.replace_playlist(new_playlist, id);
+                player_core.play(playlist[0]);
             } else {
+                player_core.replace_playlist(playlist, id);
                 player_core.resume();
             }
         }

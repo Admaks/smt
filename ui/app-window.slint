@@ -10,6 +10,8 @@ import { VerticallDivider } from "components/divider.slint";
 import { Route, RouteProperty } from "route.slint";
 import { PlayQueueProperty } from "./pages/playqueue.slint";
 import { Frame, FrameProperty } from "components/frame.slint";
+import { LyricsPage, LyricsPageProperty } from "pages/lyrics.slint";
+
 export {
     LoginProperty, 
     AppStatus, 
@@ -62,7 +64,6 @@ export component AppWindow inherits Window {
             x: sidebar-current-width - 1px;
         }
 
-        // 优化动画，不为宽度增加动画以提升性能，可能会出现页面闪烁
         main_content := Rectangle {
             background: root.main-content-color;
             height: parent.height - player.height - frame.height;
@@ -86,7 +87,7 @@ export component AppWindow inherits Window {
                 margin: calculate-margin();
             }
             
-            animate x {
+            animate x, width {
                 duration: 150ms;
                 easing: ease-out;
             }
@@ -108,6 +109,4 @@ export component AppWindow inherits Window {
     }
     
     if !AppStatus.logined: Login{ }
-
 }
-

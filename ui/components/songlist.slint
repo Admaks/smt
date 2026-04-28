@@ -390,6 +390,8 @@ export component Songlist inherits Rectangle {
     property <length> control-scroll: 0px;
     property <length> space-top: 6px;
 
+    callback delete();
+
     // 对外暴露滚动视口信息，供父容器做联动布局或吸顶控制。
     out property <length> content-viewport-height: content.viewport-height + control-height - control-scroll + space-top;
     public function set-viewport-y(viewport-y : length) {
@@ -482,9 +484,14 @@ export component Songlist inherits Rectangle {
 
                 Text {
                     vertical-alignment: center;
-                    text: "已选择" + select-count + "\u{2022}项";
+                    text: "已选择" + select-count + "项";
                 }
 
+                Text {
+                    vertical-alignment: center;
+                    text: "\u{2022}";
+                }
+                
                 Text {
                     vertical-alignment: center;
                     text: "清除";
@@ -533,7 +540,9 @@ export component Songlist inherits Rectangle {
                     text: "删除";
                     icon: @image-url("../assets/icon/svg/dismiss.svg");
                     colorize-icon: true;
-                    
+                    clicked => {
+                        delete();
+                    }
                 }
             }
             animate opacity {

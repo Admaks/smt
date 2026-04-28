@@ -1,5 +1,6 @@
 import { SongDetail } from "../types/types.slint";
 import { Songlist } from "../components/songlist.slint";
+import { ScrollView } from "std-widgets.slint";
 // import { PlayerProperty } from "../components/player.slint";
 
 export global PlayQueueProperty {
@@ -15,6 +16,7 @@ export global PlayQueueProperty {
     in-out property <[SongDetail]> queue;
 
     callback reload-queue();
+    callback remove-songs();
 }
 
 export component PlayQueue inherits Rectangle{
@@ -38,12 +40,26 @@ export component PlayQueue inherits Rectangle{
                 font-size: 40px;
             }
         }
-        Songlist {
+        list := Songlist {
             song-data: PlayQueueProperty.queue;
             base-id-1: PlayQueueProperty.base-id-1;
             base-id-2: PlayQueueProperty.base-id-2;
             base-type: PlayQueueProperty.base-type;
             margin: root.margin;
+            delete => {
+                PlayQueueProperty.remove-songs();
+            }
+        }
+    }
+
+    ScrollView {
+        height: list.height;
+        width: list.width;
+        x: list.x;
+        y: list.y;
+        viewport-height: list.content-viewport-height;
+        scrolled => {
+            list.set-viewport-y(self.viewport-y);
         }
     }
 }
