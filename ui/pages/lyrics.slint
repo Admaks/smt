@@ -1,8 +1,12 @@
-
-export component LyricsPageProperty {
-    
+export global LyricsPageProperty {
+    in-out property <image> bg-cover;
 }
 
-export component LyricsPage {
-    
+export component LyricsPage inherits Rectangle{
+    Image {
+        width: 100%;
+        height: 100%;
+        image-fit: cover;
+        source: LyricsPageProperty.bg-cover;
+    }
 }

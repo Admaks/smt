@@ -14,7 +14,6 @@ use std::{
 
 use anyhow::{Context, Result};
 use async_compat::CompatExt;
-use image::buffer;
 use rand::seq::SliceRandom;
 use rodio::cpal::traits::{DeviceTrait, HostTrait};
 use rodio::{Decoder, OutputStream, OutputStreamHandle, Sample, Sink, Source};

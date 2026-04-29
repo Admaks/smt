@@ -9,6 +9,9 @@ use image::{Rgba, RgbaImage};
 use qrcode_generator::QrCodeEcc;
 use crate::NcmApi;
 
+use image::imageops;
+
+
 pub struct AppLib {
     pub client: NcmApi,
     pub config: Config,
@@ -182,5 +185,37 @@ impl AppLib {
 
         self.playlist_cache.insert(id, playlist.clone());
         Some(playlist)
+    }
+
+    pub async fn get_blur_image_cached(&self, path: &Path) -> Option<PathBuf> {
+        let filename = format!("Blur_{}.png", path.file_prefix()?.to_str()?);
+        let cache_dir = self.config.cache_dir.join(Config::IMAGE_CACHE_SUBDIR);
+        let cache_path = cache_dir.join(filename);
+
+        if cache_path.exists() {
+            return Some(cache_path);
+        }
+
+        std::fs::create_dir_all(&cache_dir).ok()?;
+        let img = image::open(path).ok()?;
+        let blurred = imageops::blur(&img, 10.0);
+        blurred.save(&cache_path).ok()?;
+        Some(cache_path)
+    }
+
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{Config, app_lib};
+
+    #[tokio::test]
+    async fn test_blur_image_cached() {
+        // Test implementation goes here
+        let app_lib = app_lib::AppLib::new().await;
+        let mut image_path = app_lib.config.cache_dir.join(Config::IMAGE_CACHE_SUBDIR);
+        image_path.push("Album_43013_100.jpg");
+        app_lib.get_blur_image_cached(&image_path).await.unwrap();
+        println!("Blurred image generated successfully");
     }
 }

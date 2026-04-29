@@ -214,11 +214,12 @@ export component Player inherits Rectangle {
                     
                 }
                 // 封面区域。
-                HorizontalLayout {
-                    alignment: start;
-                    spacing: 10px;
+                Rectangle {
+                    // alignment: start;
+                    // spacing: 10px;
 
-                    if !AppStatus.show-playing : Rectangle {
+                    cover := Rectangle {
+                        x: 0px;
                         height: 100%;
                         width:  self.height - 10px + 5px;
                         picture := Rectangle {
@@ -235,10 +236,13 @@ export component Player inherits Rectangle {
                                 source: PlayerProperty.playing-song.image;
                             }
                         }
+                        visible: !AppStatus.show-playing;
                     }
 
                     VerticalLayout {
                         spacing: 0px;
+                        x: AppStatus.show-playing ? 10px : cover.width + 10px;
+                        width: parent.width - self.x;
                         // 歌曲名（主信息）。
                         Text {
                             vertical-alignment: center;
@@ -249,6 +253,7 @@ export component Player inherits Rectangle {
                             overflow: elide;
                             font-family: "Microsoft YaHei";
                         }
+
                         // 歌手（次信息，空值时不渲染）。
                         if !PlayerProperty.playing-song.singer.is-empty : Text {
                             vertical-alignment: top;
