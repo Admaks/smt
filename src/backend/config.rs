@@ -18,6 +18,7 @@ pub struct Config {
     pub player_event_loop_gap_ms: u64,
 }
 
+/// TODO 把路径替换到用户的.local中
 impl Default for Config {
     fn default() -> Self {
         Self {

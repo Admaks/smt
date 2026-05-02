@@ -516,15 +516,24 @@ impl NcmApi {
 
 #[cfg(test)]
 mod test {
+    use std::io::Read;
+    use std::sync::OnceLock;
     use super::*;
     use async_compat::CompatExt;
-    static COOKIE_STR: &str =
-        "MUSIC_R_T=1775140562754; Max-Age=2147483647; Expires=Wed, 05 May 2094 17:00:18 GMT; Path=/neapi/clientlog;NMTID=00OagHBmVl6aaGMgUVasO4InC-VHoEAAAGdm7Engw; Max-Age=315360000; Expires=Mon, 14 Apr 2036 13:46:11 GMT; Path=/;MUSIC_A_T=1775140562623; Max-Age=2147483647; Expires=Wed, 05 May 2094 17:00:18 GMT; Path=/weapi/feedback;MUSIC_A_T=1775140562623; Max-Age=2147483647; Expires=Wed, 05 May 2094 17:00:18 GMT; Path=/weapi/clientlog;MUSIC_R_T=1775140562754; Max-Age=2147483647; Expires=Wed, 05 May 2094 17:00:18 GMT; Path=/api/clientlog;MUSIC_R_T=1775140562754; Max-Age=2147483647; Expires=Wed, 05 May 2094 17:00:18 GMT; Path=/weapi/clientlog;MUSIC_R_T=1775140562754; Max-Age=2147483647; Expires=Wed, 05 May 2094 17:00:18 GMT; Path=/openapi/clientlog;MUSIC_A_T=1775140562623; Max-Age=2147483647; Expires=Wed, 05 May 2094 17:00:18 GMT; Path=/wapi/feedback;MUSIC_A_T=1775140562623; Max-Age=2147483647; Expires=Wed, 05 May 2094 17:00:18 GMT; Path=/neapi/clientlog;MUSIC_R_T=1775140562754; Max-Age=2147483647; Expires=Wed, 05 May 2094 17:00:18 GMT; Path=/wapi/feedback;MUSIC_A_T=1775140562623; Max-Age=2147483647; Expires=Wed, 05 May 2094 17:00:18 GMT; Path=/wapi/clientlog;MUSIC_A_T=1775140562623; Max-Age=2147483647; Expires=Wed, 05 May 2094 17:00:18 GMT; Path=/api/clientlog;MUSIC_A_T=1775140562623; Max-Age=2147483647; Expires=Wed, 05 May 2094 17:00:18 GMT; Path=/eapi/feedback;MUSIC_R_T=1775140562754; Max-Age=2147483647; Expires=Wed, 05 May 2094 17:00:18 GMT; Path=/weapi/feedback;MUSIC_R_U=004A5B8DBF3CF50BA23EBF1AA572AE137482BBA4CEAB7D4DF857210BBA405DACFC81EB66F24BBA99D598EF46D76C4691CD84AD42B13026353B54C7E3FB6B73A13DE2CE192E472F746472BA8BBFCFCC2CAE; Max-Age=15552000; Expires=Wed, 14 Oct 2026 13:46:11 GMT; Path=/api/login/token/refresh;MUSIC_A_T=1775140562623; Max-Age=2147483647; Expires=Wed, 05 May 2094 17:00:18 GMT; Path=/api/feedback;MUSIC_R_T=1775140562754; Max-Age=2147483647; Expires=Wed, 05 May 2094 17:00:18 GMT; Path=/eapi/feedback;MUSIC_R_T=1775140562754; Max-Age=2147483647; Expires=Wed, 05 May 2094 17:00:18 GMT; Path=/neapi/feedback;MUSIC_SNS=; Max-Age=0; Expires=Fri, 17 Apr 2026 13:46:11 GMT; Path=/__csrf=09361ac2ee2594b1635df6f4e1f7b7fc; Max-Age=1296010; Expires=Sat, 02 May 2026 13:46:21 GMT; Path=/;MUSIC_R_T=1775140562754; Max-Age=2147483647; Expires=Wed, 05 May 2094 17:00:18 GMT; Path=/wapi/clientlog;MUSIC_A_T=1775140562623; Max-Age=2147483647; Expires=Wed, 05 May 2094 17:00:18 GMT; Path=/neapi/feedback;MUSIC_R_T=1775140562754; Max-Age=2147483647; Expires=Wed, 05 May 2094 17:00:18 GMT; Path=/api/feedback;MUSIC_U=005DFC028EA62F9EA4075D12CFCE3E187CF9124F4840757933B28A4A794173DCC14FF7834C4893971EA75DEF3A957063CC3AD6D034F757B76AF51AF8F5B114AEAB4BC958EA6908B395A4A21D265AAB103C1BDEC9A81E6A613EDC6FB1142DBC5B21EBCAFC99564B2A46FDAD0F802EAF57FD0B7C5CE1A7D3812944F7AE0FBEF9B0C65C7AF3BE5CF73591CBF5E0660265160B7B40CE643A8D1F9BCA95496B1AFE30E6D68913ADD8391088F68C2913C155292556E32EC01988FCCCF49EC00E3916C5AAD7E39D895EC1E1DE96922A7B61BD50F094BC56838732252D6249A7FB3872CAEAA7C53245959BA41892F4A1DA76384B3BFE2A22119CB07158784F48A4DA19AFD3EBC2B1522DF3B511CA43BFB5BDC5E61303F7852101913803062A659E0339085B8B4593EA4C493AC4BF48B3CE5EDCC4FDA9DF79C65923A3DB17598A59F0B765D167DF2C23A6E66A447C882C6EFF3D0E66D0BD38D9A83722FA8E1CABED67D3D0697370ECC79FDD3F8883BCE8942BD780FB291825337FEA993E0A1FDBF219BB4B30099BEB52BEE9DE5F1C1648A04E549FAF5B93C110A1F431ACEE5E5BCF95302072; Max-Age=15552000; Expires=Wed, 14 Oct 2026 13:46:11 GMT; Path=/;MUSIC_R_U=004A5B8DBF3CF50BA23EBF1AA572AE137482BBA4CEAB7D4DF857210BBA405DACFC81EB66F24BBA99D598EF46D76C4691CD84AD42B13026353B54C7E3FB6B73A13DE2CE192E472F746472BA8BBFCFCC2CAE; Max-Age=15552000; Expires=Wed, 14 Oct 2026 13:46:11 GMT; Path=/eapi/login/token/refresh;MUSIC_A_T=1775140562623; Max-Age=2147483647; Expires=Wed, 05 May 2094 17:00:18 GMT; Path=/openapi/clientlog;MUSIC_A_T=1775140562623; Max-Age=2147483647; Expires=Wed, 05 May 2094 17:00:18 GMT; Path=/eapi/clientlog;MUSIC_R_T=1775140562754; Max-Age=2147483647; Expires=Wed, 05 May 2094 17:00:18 GMT; Path=/eapi/clientlog;";
+    use crate::config;
+
+    fn get_cookie() -> String {
+        let mut cookie = String::new();
+        let config = Config::default();
+        let mut cookie_file = std::fs::File::open(config.cache_dir.join("cookie.txt")).unwrap();
+        cookie_file.read_to_string(&mut cookie).unwrap();
+        cookie
+    }
 
     #[test]
     fn test_account() {
         futures::executor::block_on(async move {
-            let api = NcmApi::new(COOKIE_STR);
+            let api = NcmApi::new(&get_cookie());
             let res = api.user_account().compat().await.unwrap();
             println!("{:#?}", res);
         })
@@ -533,7 +542,7 @@ mod test {
     #[test]
     fn test_playlist() {
         futures::executor::block_on(async move {
-            let api = NcmApi::new(COOKIE_STR);
+            let api = NcmApi::new(&get_cookie());
             let res = api.playlist_detail(17607058970, None).compat().await.unwrap();
 
             println!("{:#?}", res);
@@ -543,7 +552,7 @@ mod test {
     #[test]
     fn test_songs_detail() {
         futures::executor::block_on(async move {
-            let api = NcmApi::new(COOKIE_STR);
+            let api = NcmApi::new(&get_cookie());
             let res = api.songs_detail(&[740558, 26133345, 740611]).compat().await.unwrap();
 
             println!("{:#?}", res);
@@ -553,7 +562,7 @@ mod test {
     #[test]
     fn test_like_list() {
         futures::executor::block_on(async move {
-            let api = NcmApi::new(COOKIE_STR);
+            let api = NcmApi::new(&get_cookie());
             let account = api.user_account().compat().await.unwrap();
             let like_ids = api.like_list(account.id).compat().await.unwrap();
             println!("{:#?}", like_ids);
@@ -562,14 +571,14 @@ mod test {
 
     #[tokio::test]
     async fn test_songs_url() {
-        let api = NcmApi::new(COOKIE_STR);
+        let api = NcmApi::new(&get_cookie());
         let res = api.songs_url(&[740558, 26133345, 740611], MusicQuality::Higher).await.unwrap();
         println!("{:#?}", res);
     }
 
     #[tokio::test]
     async fn users_playlist() {
-        let api = NcmApi::new(COOKIE_STR);
+        let api = NcmApi::new(&get_cookie());
         let account = api.user_account().await.unwrap();
         let playlists = api.user_playlist(account.id).await.unwrap();
         println!("{:#?}", playlists);
@@ -578,7 +587,7 @@ mod test {
     #[test]
     fn test_songs_path() {
         futures::executor::block_on(async move {
-            let api = NcmApi::new(COOKIE_STR);
+            let api = NcmApi::new(&get_cookie());
             let res = api
                 .songs_path(&[740558, 26133345, 740611],
                             MusicQuality::Standard,
