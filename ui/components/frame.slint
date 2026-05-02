@@ -14,6 +14,9 @@ export component Frame inherits Rectangle {
     
     property <bool> maximized;
 
+    // in property <length> absolute-x;
+    // in property <length> absolute-y;
+
     Timer {
         running: true;
         interval: 50ms;
@@ -22,15 +25,15 @@ export component Frame inherits Rectangle {
 
             if root.width > root.button-width * 3 {
                 FrameProperty.update-title-bar-rect(
-                    root.x,
-                    root.y,
+                    root.absolute-position.x,
+                    root.absolute-position.y,
                     root.width - root.button-width * 3,
                     root.height
                 );
             } else {
                 FrameProperty.update-title-bar-rect(
-                    root.x,
-                    root.y,
+                    root.absolute-position.x,
+                    root.absolute-position.y,
                     0px,
                     root.height
                 );
@@ -41,17 +44,6 @@ export component Frame inherits Rectangle {
     }
 
     property <length> button-width: 40px;
-    TouchArea {
-        // clicked => {
-        //     // if self.pressed {
-        //         FrameProperty.move();
-        //     // }
-        // }
-
-        // double-clicked => {
-        //     FrameProperty.maximize();
-        // }
-    }
 
     HorizontalLayout {
         width: 100%;

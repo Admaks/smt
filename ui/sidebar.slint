@@ -286,10 +286,10 @@ component ToggleButton inherits Rectangle{
 
 export component SideBar inherits Rectangle {
     in-out property <int> active-item-id : 0;
-    in-out property <bool> toggled : false;
     
     out property <length> initia-with: 300px;
     out property <length> compact-width: 44px;
+    out property <bool> toggled : false;
 
     width: toggled ? compact-width : initia-with;
     clip: true;
@@ -399,6 +399,5 @@ export component SideBar inherits Rectangle {
     animate width {
         duration: 100ms;
         easing: ease-out;
-        delay: 10ms;
     }
 }

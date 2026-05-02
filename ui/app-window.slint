@@ -34,78 +34,75 @@ export component AppWindow inherits Window {
     preferred-width: 1920px * 0.5;
 
     property <color> main-content-color: Palette.white.with-alpha(0.6);
-    property <bool> sidebar-toggled: false;
-    property <length> sidebar-current-width : 0;
 
     no-frame: true;
     resize-border-width: 6px;
 
-    if AppStatus.logined: Rectangle {
-        height: 100%;
-        width: 100%;
 
-        sidebar := SideBar {
-            x: 0;
+    if AppStatus.logined : Rectangle {
+        upper := Rectangle {
+            horizontal-stretch: 1;
+            height: root.height - player.height;
             y: 0;
-            height: parent.height - player.height;
-            toggled <=> sidebar-toggled;
-            current-width-changed => {
-                sidebar-current-width = sidebar.current-width;
-            }
-            background: Palette.neutral-lighter.with-alpha(0.3);
-        }
-
-        // property <length> sidebar-current-width : sidebar.current-width;
-
-        VerticallDivider {
-            height: parent.height - player.height;
-            y:0;
-            x: sidebar-current-width - 1px;
-        }
-
-        main_content := Rectangle {
-            background: root.main-content-color;
-            height: parent.height - player.height - frame.height;
-
-            width: root.width - sidebar-current-width;
-            x: sidebar-current-width;
-            y: frame.height;
-
-            property <length>  max-width-t: 1280px;
-            property <length>  min-width-t: 600px;
-
-            pure function calculate-margin() -> length {
-                if self.width > max-width-t {
-                    return (self.width - max-width-t) / 2 + 60px;
+            Rectangle {
+                width: 100%;
+                sidebar := SideBar {
+                    x: 0;
+                    background: Palette.neutral-lighter.with-alpha(0.3);
+                    height: 100%;
                 }
 
-                return 60px;
-            }
+                VerticallDivider {
+                    x: sidebar.current-width;
+                    height: 100%;
+                }
 
-            Route {
-                margin: calculate-margin();
-            }
+                Rectangle {
+                    x: sidebar.current-width;
+                    width: root.width - self.x;
+                    title_bar := Frame {
+                        y: 0;
+                        background: root.main-content-color;
+                        width: parent.width;
+                    }
 
-            animate x, width {
-                duration: 150ms;
-                easing: ease-out;
-            }
-        }
+                    main_content := Rectangle {
+                        y: title_bar.height;
+                        width: parent.width;
+                        height: parent.height - self.y;
 
-        frame := Frame {
-            width: root.width - sidebar-current-width;
-            y: 0;
-            x: sidebar-current-width;
-            background: root.main-content-color;
+                        background: root.main-content-color;
+                        out property <length>  max-width-t: 1280px;
+                        out property <length>  min-width-t: 600px;
+
+                        pure function calculate-margin() -> length {
+                            if self.width > max-width-t {
+                                return (self.width - max-width-t) / 2 + 60px;
+                            }
+
+                            return 60px;
+                        }
+
+                        Route {
+                            margin: calculate-margin();
+                        }
+                    }
+                    
+                    animate x {
+                        duration: 100ms;
+                        easing: ease-out;
+                    }
+                }
+            }
         }
 
         player := Player {
             background: root.main-content-color;
-
-            x: 0px;
-            y: parent.height - self.height;
+            height: 111px;
+            y: upper.height;
         }
     }
+
     
     if !AppStatus.logined: Login{ }
 }
