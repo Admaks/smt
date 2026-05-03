@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "PowerShell($content = Get-Content -Path \"d:\\\\code\\\\smt\\\\smt\\\\src\\\\backend\\\\player.rs\" -Encoding UTF8; for \\($i = 932; $i -le 937; $i++\\) { $line = $content[$i]; Write-Output \"Line $\\($i+1\\): [$line] length=$\\($line.Length\\)\"; $line.ToCharArray\\(\\) | ForEach-Object { \"  char: '$_' \\(0x{0:X}\\)\" -f [int]$_ } })",
-      "PowerShell(cargo check *)"
-    ]
-  }
-}
