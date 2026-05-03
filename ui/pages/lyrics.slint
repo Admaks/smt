@@ -1,12 +1,74 @@
+import { MarginBox } from "../components/margin-box.slint";
+import { HorizontalBox } from "std-widgets.slint";
+import { Frame } from "../components/frame.slint";
+import { Palette } from "../palette.slint";
+
 export global LyricsPageProperty {
-    in-out property <image> bg-cover;
+    in-out property <image> background;
+    
+    in-out property <image> cover;
+    in-out property <bool> display;
+
+    callback show();
 }
 
 export component LyricsPage inherits Rectangle{
+    visible: LyricsPageProperty.display;
+    
+    clip: true;
+
     Image {
+        z: 10;
         width: 100%;
         height: 100%;
         image-fit: cover;
-        source: LyricsPageProperty.bg-cover;
+        source: LyricsPageProperty.background;
+    }
+
+    title_bar := Frame {
+        z: 30;
+        x: 0;
+        y: 0;
+        width: 100%;
+    }
+
+    MarginBox {
+        z: 20;
+        height: 100%;
+        width: 100%;
+        margin-top : title_bar.height;
+        background: Palette.white.with-alpha(0.6);
+        HorizontalBox {
+            VerticalLayout {
+                height: 100%;
+                alignment: end;
+                width: 300px;
+
+                cover_ele := MarginBox {
+                    width: parent.width;
+                    height: parent.width;
+
+                    margin: 20px;
+                    Rectangle {
+                        width: 100%;
+                        height: 100%;
+                        clip: true;
+                        border-radius: 8px;
+                        Image {
+                            width: 100%;
+                            height: 100%;
+                            image-fit: cover;
+                            source: LyricsPageProperty.cover;
+                        }
+                    }
+
+                    property <bool> animate-in: false;
+                }
+            }
+
+            Rectangle {
+
+            }
+        }
     }
 }

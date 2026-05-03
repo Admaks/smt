@@ -5,7 +5,7 @@ import { HorizontalDivider } from "divider.slint";
 import { Palette } from "../palette.slint";
 import { IconFontFilled } from "../assets/icon/iconfont.slint";
 import { SongDetail } from "../types/types.slint";
-
+import { LyricsPageProperty } from "../pages/lyrics.slint";
 
 export global PlayerProperty {
     // 当前播放中的歌曲信息，由外部状态驱动。
@@ -211,7 +211,9 @@ export component Player inherits Rectangle {
                 x: 0;
                 width: (parent.width - control.width) / 2;
                 ta_detail := TouchArea {
-                    
+                    clicked => {
+                        LyricsPageProperty.show();
+                    }
                 }
                 // 封面区域。
                 Rectangle {
@@ -236,12 +238,12 @@ export component Player inherits Rectangle {
                                 source: PlayerProperty.playing-song.image;
                             }
                         }
-                        visible: !AppStatus.show-playing;
+                        visible: !LyricsPageProperty.display;
                     }
 
                     VerticalLayout {
                         spacing: 0px;
-                        x: AppStatus.show-playing ? 10px : cover.width + 10px;
+                        x: LyricsPageProperty.display ? 10px : cover.width + 10px;
                         width: parent.width - self.x;
                         // 歌曲名（主信息）。
                         Text {

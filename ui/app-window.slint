@@ -23,7 +23,8 @@ export {
     SideBarItemMessage, 
     RouteProperty, 
     PlayQueueProperty, 
-    FrameProperty 
+    FrameProperty,
+    LyricsPageProperty
 }
 
 export component AppWindow inherits Window {
@@ -37,7 +38,6 @@ export component AppWindow inherits Window {
 
     no-frame: true;
     resize-border-width: 6px;
-
 
     if AppStatus.logined : Rectangle {
         upper := Rectangle {
@@ -64,6 +64,7 @@ export component AppWindow inherits Window {
                         y: 0;
                         background: root.main-content-color;
                         width: parent.width;
+                        enable: !LyricsPageProperty.display;
                     }
 
                     main_content := Rectangle {
@@ -94,7 +95,16 @@ export component AppWindow inherits Window {
                     }
                 }
             }
+            visible: !LyricsPageProperty.display;
         }
+
+        if LyricsPageProperty.display : LyricsPage {
+            height: root.height - player.height;
+            width: root.width;
+            x: 0;
+            y: 0;
+        }
+        
 
         player := Player {
             background: root.main-content-color;

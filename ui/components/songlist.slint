@@ -393,7 +393,7 @@ export component Songlist inherits Rectangle {
     callback delete();
 
     // 对外暴露滚动视口信息，供父容器做联动布局或吸顶控制。
-    out property <length> content-viewport-height: content.viewport-height + control-height - control-scroll + space-top;
+    out property <length> content-viewport-height: content.viewport-height + control-height - control-scroll + space-top + 50px;
     public function set-viewport-y(viewport-y : length) {
         let total_scroll = -viewport-y;
 

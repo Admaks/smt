@@ -517,10 +517,8 @@ impl NcmApi {
 #[cfg(test)]
 mod test {
     use std::io::Read;
-    use std::sync::OnceLock;
     use super::*;
     use async_compat::CompatExt;
-    use crate::config;
 
     fn get_cookie() -> String {
         let mut cookie = String::new();

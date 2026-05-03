@@ -198,7 +198,7 @@ impl AppLib {
 
         std::fs::create_dir_all(&cache_dir).ok()?;
         let img = image::open(path).ok()?;
-        let blurred = imageops::blur(&img, 10.0);
+        let blurred = imageops::blur(&img, 15.0);
         blurred.save(&cache_path).ok()?;
         Some(cache_path)
     }

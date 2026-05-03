@@ -29,6 +29,7 @@ impl App {
         self.bind_sidebar();
         self.bind_route(); 
         self.bind_play_queue();
+        self.bind_lyrics_page();
     }
 
     pub fn load_app_status(&self) {

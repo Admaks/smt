@@ -931,8 +931,24 @@ impl PlayerCore {
 
 		let songs_hash = song_ids.iter().copied().collect::<HashSet<u64>>();
 
+		let removed_before_current = self.current_index.map_or(0, |idx| {
+			self.playlist[..idx]
+				.iter()
+				.filter(|id| songs_hash.contains(id))
+				.count()
+		});
+
 		self.playlist.retain(|id| !songs_hash.contains(id));
-		
+
+		if let Some(ref mut idx) = self.current_index {
+			*idx = idx.saturating_sub(removed_before_current);
+			if self.playlist.is_empty() {
+				self.current_index = None;
+			} else if *idx >= self.playlist.len() {
+				*idx = self.playlist.len() - 1;
+			}
+		}
+
 		if let Some(original) = self.original_playlist.as_mut() {
 			original.retain(|id| !songs_hash.contains(id));
 		}

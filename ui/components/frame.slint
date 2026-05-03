@@ -12,13 +12,15 @@ export global FrameProperty {
 export component Frame inherits Rectangle { 
     height: 30px;
     
+    in property <bool> enable: true;
+
     property <bool> maximized;
 
     // in property <length> absolute-x;
     // in property <length> absolute-y;
 
     Timer {
-        running: true;
+        running: enable;
         interval: 50ms;
         triggered => {
             maximized = FrameProperty.listen-maximize();
@@ -45,7 +47,7 @@ export component Frame inherits Rectangle {
 
     property <length> button-width: 40px;
 
-    HorizontalLayout {
+    if enable : HorizontalLayout {
         width: 100%;
         Rectangle {
             horizontal-stretch: 1;
