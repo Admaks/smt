@@ -27,7 +27,7 @@ impl App {
 
     async fn playlist_load_data(&self,id: u64) {
         let playlist = self.app_lib
-            .get_playlist_cached(id)
+            .get_playlist_cached(id, false)
             .await
             .unwrap();
         let track_details = self.app_lib.get_tracks_cached(&playlist.track_ids).await;

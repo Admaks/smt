@@ -15,6 +15,11 @@ impl App {
     async fn lyrics_page_show(&self) {
         let app_ui = self.app_ui.unwrap();
 
+        if app_ui.global::<LyricsPageProperty>().get_display() {
+            app_ui.global::<LyricsPageProperty>().set_display(false);
+            return;
+        }
+
         let Some(current_song) = self.app_lib.player_core.borrow().get_current_id() else {
             return;
         };
@@ -37,7 +42,7 @@ impl App {
             slint::Image::load_from_path(&cover_path).unwrap_or_default()
         );
 
-        let blur_cover_path = self.app_lib.get_blur_image_cached(&cover_path).await.unwrap_or(cover_path);
+        let blur_cover_path = self.app_lib.get_blur_image(&cover_path).await.unwrap_or(cover_path);
 
         app_ui.global::<LyricsPageProperty>().set_background(
             slint::Image::load_from_path(&blur_cover_path).unwrap_or_default()
@@ -46,4 +51,3 @@ impl App {
         app_ui.global::<LyricsPageProperty>().set_display(true);
     }
 }
-

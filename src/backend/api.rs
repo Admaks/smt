@@ -11,6 +11,7 @@ use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
 use tokio::sync::{Mutex, Notify, RwLock, Semaphore};
 use tokio::time::sleep;
+
 use super::{config::Config, model};
 
 #[derive(Clone)]
@@ -241,6 +242,13 @@ impl NcmApi {
         let mut response = self.client.read().await.user_playlist(&Query::new().param("uid", &uid.to_string())).await?;
         Ok(response.body["playlist"].take().try_into()?)
     }
+
+    pub async fn lyrics(&self, id: u64) -> anyhow::Result<model::Lyrics> {
+        let mut response = self.client.read().await.lyric(&Query::new().param("id", &id.to_string())).await?;
+        let lyrics: model::Lyrics = response.body.take().try_into()?;
+        Ok(lyrics)
+    }
+
 
     fn detect_image_extension(bytes: &[u8]) -> anyhow::Result<&'static str> {
         const PNG_MAGIC: [u8; 8] = [0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A];
@@ -523,7 +531,8 @@ mod test {
     fn get_cookie() -> String {
         let mut cookie = String::new();
         let config = Config::default();
-        let mut cookie_file = std::fs::File::open(config.cache_dir.join("cookie.txt")).unwrap();
+        let mut cookie_file = std::fs::File::open(config.cache_dir.join("cookie")).unwrap();
+
         cookie_file.read_to_string(&mut cookie).unwrap();
         cookie
     }
@@ -582,6 +591,13 @@ mod test {
         println!("{:#?}", playlists);
     }
 
+    #[tokio::test]
+    async fn test_lyrics() {
+        let api = NcmApi::new(&get_cookie());
+        let res = api.lyrics(26133345).await.unwrap();
+        println!("{:#?}", res);
+    }
+    
     #[test]
     fn test_songs_path() {
         futures::executor::block_on(async move {

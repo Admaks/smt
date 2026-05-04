@@ -50,6 +50,8 @@ export component LyricsPage inherits Rectangle{
 
                     margin: 20px;
                     Rectangle {
+                        transform-scale: 0.4;
+                        transform-origin: { x: self.width / 2, y: self.height };
                         width: 100%;
                         height: 100%;
                         clip: true;
@@ -60,9 +62,21 @@ export component LyricsPage inherits Rectangle{
                             image-fit: cover;
                             source: LyricsPageProperty.cover;
                         }
-                    }
 
-                    property <bool> animate-in: false;
+                        animate transform-scale {
+                            duration: 50ms;
+                            easing: ease-in; 
+                        }
+
+                        Timer {
+                            running: true;
+                            interval: 10ms;
+                            triggered => {
+                                parent.transform-scale = 1;
+                                self.running = false;
+                            }
+                        }
+                    }
                 }
             }
 

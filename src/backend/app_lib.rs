@@ -176,9 +176,11 @@ impl AppLib {
         }).collect()
     }
 
-    pub async fn get_playlist_cached(&self, id: u64) -> Option<crate::model::PlaylistDetail> {
-        if let Some(playlist) = self.playlist_cache.get(&id) {
-            return Some(playlist);
+    pub async fn get_playlist_cached(&self, id: u64, refresh : bool) -> Option<crate::model::PlaylistDetail> {
+        if !refresh {
+            if let Some(playlist) = self.playlist_cache.get(&id) {
+                return Some(playlist);
+            }
         }
 
         let playlist = self.client.playlist_detail(id, None).compat().await.ok()?;
@@ -187,7 +189,7 @@ impl AppLib {
         Some(playlist)
     }
 
-    pub async fn get_blur_image_cached(&self, path: &Path) -> Option<PathBuf> {
+    pub async fn get_blur_image(&self, path: &Path) -> Option<PathBuf> {
         let filename = format!("Blur_{}.png", path.file_prefix()?.to_str()?);
         let cache_dir = self.config.cache_dir.join(Config::IMAGE_CACHE_SUBDIR);
         let cache_path = cache_dir.join(filename);
@@ -215,7 +217,7 @@ mod tests {
         let app_lib = app_lib::AppLib::new().await;
         let mut image_path = app_lib.config.cache_dir.join(Config::IMAGE_CACHE_SUBDIR);
         image_path.push("Album_43013_100.jpg");
-        app_lib.get_blur_image_cached(&image_path).await.unwrap();
+        app_lib.get_blur_image(&image_path).await.unwrap();
         println!("Blurred image generated successfully");
     }
 }

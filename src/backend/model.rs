@@ -169,7 +169,7 @@ impl TryFrom<Value> for PlaylistDetail {
         };
 
         let mut playlist_details:Self = serde_json::from_value(v)
-            .with_context(|| format!("Failed to parse playlist details"))?;
+            .context("Failed to parse playlist details")?;
 
         playlist_details.creator = creator;
         playlist_details.track_ids = track_ids?;
@@ -286,3 +286,124 @@ impl TryFrom<Value> for UserPlaylists {
     }
 }
 
+
+#[derive(Debug, Clone, Deserialize, GetSize)]
+pub struct LyricsLine {
+    pub time: std::time::Duration,
+    pub content: Option<String>,
+    pub translation: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, GetSize)]
+pub struct Lyrics {
+    pub lines: Vec<LyricsLine>,
+}
+
+impl TryFrom<Value> for Lyrics {
+    type Error = anyhow::Error;
+    fn try_from(v: Value) -> Result<Self, Self::Error> {
+        let lyrics_str = v["lrc"]["lyric"]
+            .as_str()
+            .ok_or(anyhow::anyhow!("lrc not found"))?;
+
+        let translation_str = v["tlyric"]["lyric"]
+            .as_str()
+            .ok_or(anyhow::anyhow!("translation not found"));
+
+        let lyrics_lines = Self::parse_lyrics(lyrics_str)
+            .into_iter().map(|(time, content)| {
+                LyricsLine {time, content: Some(content), translation: None}
+            }
+        ).collect::<Vec<_>>();
+
+        let mut res = Lyrics { lines: lyrics_lines };
+
+        if let Ok(translation_str) = translation_str {
+            let translation_lines = Self::parse_lyrics(translation_str);
+            res.append_translation(&translation_lines);
+        }
+
+        Ok(res)        
+    }
+}
+
+impl Lyrics {
+    fn parse_lyrics(str : &str) -> Vec<(std::time::Duration, String)> {
+        str.lines().filter_map(|s| {
+            let (time_str, content_raw) = s.split_once(']')?;
+            let time_str = time_str.strip_prefix('[')?;
+            let content = content_raw.trim().to_string();
+
+            if content.is_empty() {
+                return None;
+            }
+
+            let time = std::time::Duration::from_secs_f32(
+                time_str
+                .split(':')
+                .zip([60f32, 1f32].iter())
+                .fold(0f32, |acc, (part, multiplier)| {
+                    acc + part.parse::<f32>().unwrap_or(0f32) * multiplier
+            }));
+
+            Some((
+                time,
+                content,
+            ))
+        }).collect::<Vec<_>>()
+    }
+
+    fn append_translation(&mut self, lines: &[(std::time::Duration, String)]) {
+        let mut p_self = 0usize;
+        let mut p_other = 0usize;
+        let mut result = Vec::new();
+        while p_self < self.lines.len() && p_other < lines.len() {
+            if self.lines[p_self].time == lines[p_other].0 {
+                let mut line = self.lines[p_self].clone();
+                line.translation = Some(lines[p_other].1.clone());
+                result.push(line);
+                p_self += 1;
+                p_other += 1;
+            } else if self.lines[p_self].time < lines[p_other].0 {
+                result.push(self.lines[p_self].clone());
+                p_self += 1;
+            } else {
+                result.push(LyricsLine {
+                    time: lines[p_other].0,
+                    content: None,
+                    translation: Some(lines[p_other].1.clone()),
+                });
+                p_other += 1;
+            }
+        }
+
+        while p_self < self.lines.len() {
+            result.push(self.lines[p_self].clone());
+            p_self += 1;
+        }
+
+        while p_other < lines.len() {
+            result.push(LyricsLine {
+                time: lines[p_other].0,
+                content: None,
+                translation: Some(lines[p_other].1.clone()),
+            });
+            p_other += 1;
+        }
+
+        self.lines = result;
+    }
+}
+
+
+impl Lyrics {
+    pub fn current_index(&self, position: std::time::Duration) -> Option<usize> {
+        self.lines.binary_search_by_key(&position, |line| line.time)
+            .map_or_else(|index| index.checked_sub(1), |index| Some(index))
+    }
+    
+    pub fn current_line(&self, position: std::time::Duration) -> Option<&LyricsLine> {
+        let indx = self.current_index(position)?;
+        self.lines.get(indx)
+    }
+}
