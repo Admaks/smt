@@ -1,7 +1,9 @@
-// playlist/82430854
+// ListView 测试组件 —— 不同高度项 + viewport-y 操作 + Timer 调试打印
 
-import { LineEdit } from "std-widgets.slint";
+import { LineEdit, Button, VerticalBox, HorizontalBox, ScrollView, ListView } from "std-widgets.slint";
 import { IconFont } from "../assets/icon/iconfont.slint";
+
+// ===== 触摸测试 =====
 export component T {
     ta_main := TouchArea {
         property <bool> left-down: false;
@@ -33,6 +35,7 @@ export component T {
     }
 }
 
+// ===== 右键菜单测试 =====
 export component ContextMenu {
     ContextMenuArea {
         Menu {
@@ -61,3 +64,141 @@ export component ContextMenu {
         }
     }
 }
+
+// ===== ListView 测试 =====
+export component ListViewTest inherits Rectangle {
+    // 等差数列高度: 起点 40px, 公差 20px
+    in-out property <[int]> heights: [
+        40, 60, 80, 100, 120, 140, 160, 180, 200, 220, 240, 260, 280, 300
+    ];
+
+    // 五颜六色，方便识别每一项
+    in-out property <[color]> item-colors: [
+        #FF6B6B, #FFD93D, #6BCB77, #4D96FF, #9B59B6,
+        #FF8C42, #00B4D8, #E76F51, #2A9D8F, #E9C46A,
+        #FF85A1, #A0E7E5, #B4A7D6, #F4A261
+    ];
+
+    // 用输入框控制 viewport-y 偏移量
+    in-out property <length> viewport-offset: 0px;
+
+    // 输入框文本（双向绑定到 Rust 侧解析）
+    property <string> viewport-input-text;
+
+    VerticalBox {
+        padding: 8px;
+        spacing: 8px;
+
+        // 控制面板
+        HorizontalBox {
+            height: 40px;
+            spacing: 4px;
+
+            Text {
+                text: "viewport-y 偏移:";
+                vertical-alignment: center;
+                font-size: 13px;
+            }
+
+            // 输入框：输入数值后按回车设置 viewport-y
+            viewport_input := LineEdit {
+                text: viewport-input-text;
+                placeholder-text: "输入 viewport-y 偏移...";
+                horizontal-stretch: 1;
+                accepted => {
+                    // 触发回调，由 Rust 侧解析字符串并设置 viewport-offset
+                    root.viewport-input-text = self.text;
+                    
+                    list.viewport-y =  self.text.to-float() * 1px;
+                    debug(list.viewport-y);
+
+                }
+                // changed => {
+                //     root.viewport-input-text = self.text;
+                // }
+            }
+
+            Text {
+                text: "= " + round(root.viewport-offset / 1px) + "px";
+                vertical-alignment: center;
+                font-size: 13px;
+                width: 120px;
+            }
+        }
+
+        // 快捷按钮
+        HorizontalBox {
+            height: 40px;
+            spacing: 4px;
+
+            Button {
+                text: "↓ +100px";
+                clicked => {
+                    root.viewport-offset += 100px;
+                }
+            }
+            Button {
+                text: "↑ -100px";
+                clicked => {
+                    root.viewport-offset -= 100px;
+                }
+            }
+            Button {
+                text: "↓ +200px";
+                clicked => {
+                    root.viewport-offset += 200px;
+                }
+            }
+            Button {
+                text: "↑ -200px";
+                clicked => {
+                    root.viewport-offset -= 200px;
+                }
+            }
+            Button {
+                text: "归零";
+                clicked => {
+                    root.viewport-offset = 0px;
+                }
+            }
+        }
+
+        // ===== ListView 测试主体 =====
+        list := ListView {
+            vertical-stretch: 1;
+            // viewport-y: root.viewport-offset;
+
+            for h[i] in root.heights: Rectangle {
+                height: h * 1px;
+                background: root.item-colors[Math.mod(i, root.item-colors.length)];
+                horizontal-stretch: 1;
+                border-radius: 4px;
+
+                Text {
+                    text: "[" + i + "] 高度=" + h + "px  —  vp-y=" + round(list.viewport-y / 1px);
+                    color: white;
+                    font-size: 16px;
+                    font-weight: 600;
+                    vertical-alignment: center;
+                    horizontal-alignment: center;
+                }
+            }
+        }
+    }
+
+    // 定时打印 ListView 属性信息
+    // Timer {
+    //     running: true;
+    //     interval: 500ms;
+    //     triggered => {
+    //         debug("===== ListView 属性 =====");
+    //         debug("  viewport-y:      ", list.viewport-y);
+    //         debug("  viewport-height: ", list.viewport-height);
+    //         debug("  viewport-width:  ", list.viewport-width);
+    //         debug("  当前 offset:     ", root.viewport-offset);
+    //         debug("=========================");
+    //     }
+    // }
+}
+
+

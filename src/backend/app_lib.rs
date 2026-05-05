@@ -4,12 +4,36 @@ use crate::{Config, player::PlayerCore};
 use anyhow::{Context, Result};
 use async_compat::CompatExt;
 
-use get_size2::GetSize;
 use image::{Rgba, RgbaImage};
 use qrcode_generator::QrCodeEcc;
 use crate::NcmApi;
-
 use image::imageops;
+use get_size2::GetSize;
+
+pub struct CacheStore {
+    pub(crate) track_detail: moka::sync::Cache<u64, crate::model::TrackDetail>,
+    pub(crate) playlist: moka::sync::Cache<u64, crate::model::PlaylistDetail>,
+}
+
+impl CacheStore {
+    pub fn new() -> Self {
+        let track_detail = moka::sync::CacheBuilder::new(Config::TRACK_DETAIL_MEMERY_CACHE_CAPACITY)
+            .weigher(|key, value: &crate::model::TrackDetail| {
+                (value.get_size() + std::mem::size_of_val(key)).try_into().unwrap()
+            })
+            .time_to_live(std::time::Duration::from_secs(60 * 60))
+            .build();
+
+        let playlist = moka::sync::CacheBuilder::new(Config::PLAYLIST_MEMERY_CACHE_CAPACITY)
+            .weigher(|key, value: &crate::model::PlaylistDetail| {
+                (value.get_size() + std::mem::size_of_val(key)).try_into().unwrap()
+            })
+            .time_to_live(std::time::Duration::from_secs(60 * 60))
+            .build();
+
+        Self { track_detail, playlist }
+    }
+}
 
 
 pub struct AppLib {
@@ -18,31 +42,18 @@ pub struct AppLib {
     pub login_user: RefCell<Option<crate::model::Account>>,
     pub loved_ids: RefCell<HashSet<u64>>,
     pub player_core: RefCell<PlayerCore>,
-    track_detail_cache: moka::sync::Cache<u64, crate::model::TrackDetail>,
-    playlist_cache: moka::sync::Cache<u64, crate::model::PlaylistDetail>
+
+    pub playing_lyrics: RefCell<Option<crate::model::Lyrics>>,
+
+    cache: CacheStore,
 }
 
 
 impl AppLib {
     pub async fn new() -> Self {
         let config = Config::default();
-        
-        let track_detail_cache = moka::sync::CacheBuilder::new(Config::TRACK_DETAIL_MEMERY_CACHE_CAPACITY)
-            .weigher(|key, value : &crate::model::TrackDetail| {
-                (value.get_size() + std::mem::size_of_val(key)).try_into().unwrap()
-            })
-            .time_to_live(std::time::Duration::from_secs(60 * 60)) // 1 hour
-            .build();
-        
-        let playlist_cache =
-            moka::sync::CacheBuilder::new(Config::PLAYLIST_MEMERY_CACHE_CAPACITY)
-            .weigher(|key, value : &crate::model::PlaylistDetail| {
-                (value.get_size() + std::mem::size_of_val(key)).try_into().unwrap()
-            })
-            .time_to_live(std::time::Duration::from_secs(60 * 60)) // 1 hour
-            .build();
+        let cache = CacheStore::new();
 
-        // println!("Loading cookie from {:?}", config.cookie_store_path);
         let cookie_str = std::fs::read_to_string(&config.cookie_store_path)
             .unwrap_or_default();
 
@@ -52,14 +63,14 @@ impl AppLib {
             .user_account()
             .compat().await
             else {
-                  return Self {
-                    player_core: RefCell::new(PlayerCore::new(client.clone(), &config).unwrap()),
+            return Self {
+                player_core: RefCell::new(PlayerCore::new(client.clone(), &config).unwrap()),
                 client,
                 config,
                 login_user: RefCell::new(None),
                 loved_ids: RefCell::new(HashSet::new()),
-                track_detail_cache,
-                playlist_cache
+                cache,
+                playing_lyrics: RefCell::new(None),
             };
         };
 
@@ -68,13 +79,13 @@ impl AppLib {
             .unwrap_or_default();
 
         Self {
-              player_core: RefCell::new(PlayerCore::new(client.clone(), &config).unwrap()),
+            player_core: RefCell::new(PlayerCore::new(client.clone(), &config).unwrap()),
             client,
             config,
             login_user: RefCell::new(Some(user)),
             loved_ids: RefCell::new(loved_ids),
-            track_detail_cache,
-            playlist_cache
+            cache,
+            playing_lyrics: RefCell::new(None),
         }
     }
 
@@ -150,7 +161,7 @@ impl AppLib {
 
     pub async fn get_tracks_cached(&self, ids : &[u64]) -> Vec<crate::model::TrackDetail>{
         let uncached= ids.iter().filter(|id| {
-            !self.track_detail_cache.contains_key(*id)
+            !self.cache.track_detail.contains_key(*id)
         }).copied().collect::<Vec<_>>();
         let mut res = self
             .client
@@ -164,11 +175,11 @@ impl AppLib {
             .collect::<HashMap<u64, crate::model::TrackDetail>>();
 
         ids.iter().filter_map(|id| {
-            match self.track_detail_cache.get(id) {
+            match self.cache.track_detail.get(id) {
                 Some(track) => Some(track),
                 None => {
                     res.remove(id).and_then(|track| {
-                        self.track_detail_cache.insert(*id, track.clone());
+                        self.cache.track_detail.insert(*id, track.clone());
                         Some(track)
                     })
                 }
@@ -178,14 +189,14 @@ impl AppLib {
 
     pub async fn get_playlist_cached(&self, id: u64, refresh : bool) -> Option<crate::model::PlaylistDetail> {
         if !refresh {
-            if let Some(playlist) = self.playlist_cache.get(&id) {
+            if let Some(playlist) = self.cache.playlist.get(&id) {
                 return Some(playlist);
             }
         }
 
         let playlist = self.client.playlist_detail(id, None).compat().await.ok()?;
 
-        self.playlist_cache.insert(id, playlist.clone());
+        self.cache.playlist.insert(id, playlist.clone());
         Some(playlist)
     }
 

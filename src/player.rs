@@ -12,7 +12,7 @@ impl App {
         self.app_ui.unwrap().global::<PlayerProperty>().on_event_loop({
             let app_runtime = app_runtime.clone();
             move || {
-                app_runtime.event_loop();
+                app_runtime.player_event_loop();
             }
         });
 
@@ -62,7 +62,7 @@ impl App {
             .set_event_loop_gap(self.app_lib.config.player_event_loop_gap_ms as i64);
     }
 
-    fn event_loop(&self) {
+    fn player_event_loop(&self) {
         {
             let current_id = self.app_lib.player_core.borrow().get_current_id();
             let app = self.app_ui.unwrap();
@@ -112,6 +112,8 @@ impl App {
 
             app.global::<PlayerProperty>().set_played_duration(played_duration.into());
             app.global::<PlayerProperty>().set_played_duration_int(played_duration_int as i32);
+
+            self.lyrics_update_position(duration.to_std().unwrap());
         }
 
         app.global::<PlayerProperty>().set_loop_type(match frame.play_order.play_mode {
@@ -151,7 +153,10 @@ impl App {
                 singer: "".into()
             };
             self.app_ui.unwrap().global::<PlayerProperty>().set_playing_song(song);
+            self.lyrics_page_reload();
         } else {
+            self.lyrics_page_reload();
+
             let (id_1, id_2) = u64_to_i32x2(id);
             let loading_song = SongDetail {
                 album: "".into(),
@@ -165,7 +170,7 @@ impl App {
                 name: "".into(),
                 pic_url: "".into(),
                 selected: false,
-                singer: "".into()
+                singer: "".into()   
             };
 
             self.app_ui.unwrap().global::<PlayerProperty>().set_playing_song(loading_song);

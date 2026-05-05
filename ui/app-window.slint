@@ -10,21 +10,24 @@ import { VerticallDivider } from "components/divider.slint";
 import { Route, RouteProperty } from "route.slint";
 import { PlayQueueProperty } from "./pages/playqueue.slint";
 import { Frame, FrameProperty } from "components/frame.slint";
-import { LyricsPage, LyricsPageProperty } from "pages/lyrics.slint";
+import { LyricsPage, LyricsPageProperty } from "pages/lyrics_page.slint";
+import { LyricsPropery, LyricsLine } from "components/lyrics.slint";
 
 export {
-    LoginProperty, 
-    AppStatus, 
-    SongDetail, 
-    PlaylistProperty, 
-    SongListProperty, 
-    PlayerProperty, 
-    SideBarProperty, 
-    SideBarItemMessage, 
-    RouteProperty, 
-    PlayQueueProperty, 
+    LoginProperty,
+    AppStatus,
+    SongDetail,
+    PlaylistProperty,
+    SongListProperty,
+    PlayerProperty,
+    SideBarProperty,
+    SideBarItemMessage,
+    RouteProperty,
+    PlayQueueProperty,
     FrameProperty,
-    LyricsPageProperty
+    LyricsPageProperty,
+    LyricsPropery,
+    LyricsLine
 }
 
 export component AppWindow inherits Window {
@@ -90,7 +93,7 @@ export component AppWindow inherits Window {
                     }
                     
                     animate x {
-                        duration: 100ms;
+                        duration: 120ms;
                         easing: ease-out;
                     }
                 }
@@ -98,7 +101,8 @@ export component AppWindow inherits Window {
             visible: !LyricsPageProperty.display;
         }
 
-        if LyricsPageProperty.display : LyricsPage {
+        // if LyricsPageProperty.display : 
+        LyricsPage {
             height: root.height - player.height;
             width: root.width;
             x: 0;

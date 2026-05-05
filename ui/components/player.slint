@@ -5,7 +5,7 @@ import { HorizontalDivider } from "divider.slint";
 import { Palette } from "../palette.slint";
 import { IconFontFilled } from "../assets/icon/iconfont.slint";
 import { SongDetail } from "../types/types.slint";
-import { LyricsPageProperty } from "../pages/lyrics.slint";
+import { LyricsPageProperty } from "../pages/lyrics_page.slint";
 
 export global PlayerProperty {
     // 当前播放中的歌曲信息，由外部状态驱动。
@@ -210,6 +210,7 @@ export component Player inherits Rectangle {
             detail := Rectangle {
                 x: 0;
                 width: (parent.width - control.width) / 2;
+                clip: true;
                 ta_detail := TouchArea {
                     clicked => {
                         LyricsPageProperty.show();
@@ -219,6 +220,8 @@ export component Player inherits Rectangle {
                 Rectangle {
                     // alignment: start;
                     // spacing: 10px;
+
+                    // x: LyricsPageProperty.display ? - (cover.width + 5px): 0;
 
                     cover := Rectangle {
                         x: 0px;
@@ -238,7 +241,12 @@ export component Player inherits Rectangle {
                                 source: PlayerProperty.playing-song.image;
                             }
                         }
-                        visible: !LyricsPageProperty.display;
+                        // visible: !LyricsPageProperty.display;
+                        opacity: LyricsPageProperty.display ? 0 : 1;
+                        animate opacity {
+                            duration: 150ms;
+                            easing: ease-out;
+                        }
                     }
 
                     VerticalLayout {
@@ -265,8 +273,8 @@ export component Player inherits Rectangle {
                             font-size: 14px;    
                         }
                         animate x, width {
-                            duration: 100ms;
-                            easing: ease-in;
+                            duration: 150ms;
+                            easing: ease-out;
                         }
                     }
                 }

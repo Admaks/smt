@@ -101,32 +101,6 @@ impl App {
     }
 
     pub fn bind_playlist(&self) {
-        // let app = app_weak.upgrade().unwrap();
-
-        // app.global::<PlaylistProperty>().on_load_data({
-        //     let app_weak = app_weak.clone();
-        //     let app_lib = app_lib.clone();
-        //     move |id_1, id_2| {
-
-        //     }
-        // });
+        // empty
     }
 }
-
-
-
-
-
-
-
-
-// mica is ok
-// [perf][playlist_load_data][id=2115392436] get_playlist_cached: 1266 ms
-// [perf][playlist_load_data][id=2115392436] get_tracks_cached: 939 ms
-// [perf][playlist_load_data][id=2115392436] to_songlist_model+set_song_data: 2 ms
-// [perf][playlist_load_data][id=2115392436] ui_bindings_update: 3 ms
-// [perf][playlist_load_data][id=2115392436] get_playlist_cover: 0 ms
-// [perf][playlist_load_data][id=2115392436] load_cover_image+set_cover: 18 ms
-// [perf][playlist_load_data][id=2115392436] get_avatar: 12 ms
-// [perf][playlist_load_data][id=2115392436] load_avatar+set_creator_avatar: 1 ms
-// [perf][playlist_load_data][id=2115392436] total: 2243 ms

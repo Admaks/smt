@@ -1,0 +1,148 @@
+import { ListView, ScrollView } from "std-widgets.slint";
+import { Palette } from "../palette.slint";
+import { MarginBox } from "margin-box.slint";
+
+export struct LyricsLine {
+    time: int,
+    content: string,
+    translation: string,
+}
+
+
+export global LyricsPropery {
+    in-out property <[LyricsLine]> lyrics: [];
+    in-out property <int> current-index: -1;
+
+    in-out property <int> id_1;
+    in-out property <int> id_2;
+
+    callback scroll-to-index(int);
+    callback seek-to-line(int);
+}
+
+export component Lyrics inherits Rectangle {    
+    clip: true;
+    background: transparent;
+    border-radius: 8px;
+
+    lyrics_view := ScrollView {
+        width: 100%;
+        height: 100%;
+        vertical-scrollbar-policy: always-off;
+
+        wait_scroll := Timer {
+            running: false;
+            interval: 2s;
+
+            property <bool> scrolling: false;
+            function set_scrolling() {
+                self.scrolling = true;
+                self.running = true;
+                wait_scroll.restart();
+            }
+
+            triggered => {
+                self.running = false;
+                self.scrolling = false;
+            }
+        }
+
+        scrolled => {
+            wait_scroll.set_scrolling();
+        }
+
+        animate viewport-y {
+            duration: 300ms;
+            easing: ease-out-quad;
+        }
+
+        layout := VerticalLayout {
+            padding-top: lyrics_view.height / 2;
+            padding-bottom: lyrics_view.height / 2;
+
+            for line[i] in LyricsPropery.lyrics: MarginBox {
+                border-radius: 8px;
+                x: 0px;
+                width: Math.min(600px, lyrics_view.width - 150px);
+                height: content.height + self.margin-vertical * 2;
+                margin-vertical: 4px;
+                margin-horizontal: 0px;
+                background: transparent;
+
+                property <bool> display: LyricsPropery.current-index == i;
+                property <length> line-y: self.y;
+
+                ta := TouchArea {
+                    clicked => {
+                        LyricsPropery.seek-to-line(i);
+                    }
+                }
+                content := MarginBox {
+                    height: lyric_text.height 
+                     + (line.translation.is-empty ? 0 : translation.height) + self.margin-vertical * 2;
+                    margin-vertical: 16px;
+                    margin-horizontal: 16px;
+                    clip: true;
+                    border-radius: 10px;
+
+                    lyric_text := Text {
+                        x: 0;
+                        y: 0;
+                        width: 100%;
+                        text: line.content;
+                        font-size: 20px;
+                        font-weight: display ? 600 : 400;
+                        color: display
+                            ? Palette.theme-primary
+                            : Palette.neutral-primary;
+                        vertical-alignment: center;
+                        horizontal-alignment: left;
+                        overflow: elide;
+                    }
+
+                    translation := Text {
+                        x: 0;
+                        y: lyric_text.height ;
+                        width: 100%;
+                        text: line.translation;
+                        font-size: 16px;
+                        font-weight: display ? 500 : 300;
+                        color: display
+                            ? Palette.theme-primary
+                            : Palette.neutral-primary-alt;
+                        vertical-alignment: center;
+                        horizontal-alignment: left;
+                        overflow: elide;
+                    }
+                    states [
+                        display_and_hover when display || ta.has-hover : {
+                            background: Palette.neutral-primary.with-alpha(0.08);
+                            in-out {
+                                animate background{
+                                    duration: 150ms;
+                                    easing: ease-out;
+                                } 
+                            }
+                        }
+                    ]
+                }
+
+                changed display => {
+                    if display && !wait_scroll.scrolling {
+                        lyrics_view.viewport-y = - (line-y - layout.padding-top + content.height / 2);
+                    }
+                }
+
+                Timer {
+                    interval: 405ms;
+                    running: display;
+                    triggered => {
+                        if display && !wait_scroll.scrolling {
+                            lyrics_view.viewport-y = - (line-y - layout.padding-top + content.height / 2);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

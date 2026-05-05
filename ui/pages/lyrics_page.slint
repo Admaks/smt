@@ -2,20 +2,39 @@ import { MarginBox } from "../components/margin-box.slint";
 import { HorizontalBox } from "std-widgets.slint";
 import { Frame } from "../components/frame.slint";
 import { Palette } from "../palette.slint";
+import { Lyrics, LyricsPropery } from "../components/lyrics.slint";
 
 export global LyricsPageProperty {
     in-out property <image> background;
-    
     in-out property <image> cover;
     in-out property <bool> display;
 
+    in-out property <int> id_1;
+    in-out property <int> id_2;
     callback show();
 }
 
 export component LyricsPage inherits Rectangle{
-    visible: LyricsPageProperty.display;
+    visible: lazy_hide.output;
     
     clip: true;
+
+    lazy_hide := Timer {
+        out property <bool> output;
+        
+        property <bool> input : LyricsPageProperty.display;
+        changed input => {
+            if input == true {
+                output = true;
+            }
+        }
+
+        running: !input;
+        interval: 150ms;
+        triggered => {
+            output = input;
+        }
+    }
 
     Image {
         z: 10;
@@ -30,6 +49,14 @@ export component LyricsPage inherits Rectangle{
         x: 0;
         y: 0;
         width: 100%;
+        enable: self.visible;
+    }
+
+    opacity: LyricsPageProperty.display ? 1 : 0;
+
+    animate opacity {
+        duration: 150ms;
+        easing: ease-out;
     }
 
     MarginBox {
@@ -50,12 +77,14 @@ export component LyricsPage inherits Rectangle{
 
                     margin: 20px;
                     Rectangle {
-                        transform-scale: 0.4;
-                        transform-origin: { x: self.width / 2, y: self.height };
+                        // transform-scale: !LyricsPageProperty.display ? 0.4 : 1;
+                        // transform-origin: { x: self.width / 2, y: self.height };
                         width: 100%;
                         height: 100%;
                         clip: true;
                         border-radius: 8px;
+                        drop-shadow-blur: 8px;
+                        drop-shadow-color: Palette.neutral-tertiary;
                         Image {
                             width: 100%;
                             height: 100%;
@@ -63,25 +92,18 @@ export component LyricsPage inherits Rectangle{
                             source: LyricsPageProperty.cover;
                         }
 
-                        animate transform-scale {
-                            duration: 50ms;
-                            easing: ease-in; 
-                        }
-
-                        Timer {
-                            running: true;
-                            interval: 10ms;
-                            triggered => {
-                                parent.transform-scale = 1;
-                                self.running = false;
-                            }
-                        }
+                        // animate transform-scale {
+                        //     duration: 125ms;
+                        //     easing: ease-in; 
+                        // }
                     }
                 }
             }
 
-            Rectangle {
-
+            lyrics_view := Lyrics {
+                horizontal-stretch: 1;
+                height: 100%;
+                visible: root.visible;
             }
         }
     }
